@@ -212,19 +212,21 @@ export const DEFAULT_RATE_SETTINGS: RateSettings = {
   toolLoss: 0.03,
 };
 
+// 가격 출처: 종합물가정보(한국물가정보) 2026년 11월호, 서울 기준(업로드 PDF에서 확인된 항목만 실가격 반영).
+// 콘센트/스위치/LED조명/감지기는 해당 가격 페이지가 확보되지 않아 추정치를 유지함(표준품셈 공수는 실수치 반영, 아래 DEFAULT_PUMSEM_FACTORS 참고).
 export const DEFAULT_MATERIALS: Array<Omit<Material, "id">> = [
-  { category: "전선관", name: "강제전선관(노출)", spec: "아연도 16mm", unit: "M", price: 1860 },
-  { category: "전선관", name: "강제전선관(노출)", spec: "아연도 22mm", unit: "M", price: 2410 },
-  { category: "전선관", name: "1종금속제가요전선관", spec: "16mm 일반-비방수", unit: "M", price: 400 },
-  { category: "기구", name: "1종금속제가요전선관 커넥터", spec: "16mm 일반-비방수", unit: "개", price: 240 },
-  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "2.25mm²(4㎟)", unit: "M", price: 428 },
-  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.38mm²(1.5㎟)", unit: "M", price: 185 },
-  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.78mm²(2.5㎟)", unit: "M", price: 428 },
+  { category: "전선관", name: "강제전선관(노출)", spec: "아연도 16mm", unit: "M", price: 3374 },
+  { category: "전선관", name: "강제전선관(노출)", spec: "아연도 22mm", unit: "M", price: 4368 },
+  { category: "전선관", name: "1종금속제가요전선관", spec: "16mm 일반-비방수", unit: "M", price: 544 },
+  { category: "기구", name: "1종금속제가요전선관 커넥터", spec: "16mm 일반-비방수", unit: "개", price: 346 },
+  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "2.25mm²(4㎟)", unit: "M", price: 1535 },
+  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.38mm²(1.5㎟)", unit: "M", price: 598 },
+  { category: "전선", name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.78mm²(2.5㎟)", unit: "M", price: 985 },
   { category: "기구", name: "콘센트", spec: "매입-접지형, 15A 250V 2구", unit: "개", price: 1879 },
-  { category: "기구", name: "풀박스", spec: "150*150*100", unit: "개", price: 3500 },
-  { category: "기구", name: "노출박스", spec: "16mm-1방출", unit: "개", price: 2818 },
-  { category: "기구", name: "아우트렛박스", spec: "8각54mm", unit: "개", price: 704 },
-  { category: "기구", name: "누전차단기", spec: "2P 30A", unit: "개", price: 2818 },
+  { category: "기구", name: "풀박스", spec: "150*150*100", unit: "개", price: 4110 },
+  { category: "기구", name: "노출박스", spec: "16mm-1방출", unit: "개", price: 600 },
+  { category: "기구", name: "아우트렛박스", spec: "8각54mm", unit: "개", price: 845 },
+  { category: "기구", name: "누전차단기", spec: "2P 30A", unit: "개", price: 13100 },
   { category: "기구", name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로1구", unit: "개", price: 3760 },
   { category: "기구", name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로2구", unit: "개", price: 5440 },
   { category: "기구", name: "LED 조명기구", spec: "평판T-BAR 300*1200 50W", unit: "개", price: 48000 },
@@ -233,19 +235,35 @@ export const DEFAULT_MATERIALS: Array<Omit<Material, "id">> = [
 ];
 
 // materialName|spec -> 품셈(공수) 매핑 (시드 시 생성된 material id로 치환됨)
+// 출처: 전기부문 표준품셈 2026(대한전기협회), 제5장 내선설비공사 — 5-1 전선관배관, 5-3 박스설치,
+// 5-10 옥내배선, 5-19 차단기및개폐기설치, 5-23 배선기구설치, 5-25-3 LED등기구설치.
+// 감지기(차동식)는 전기부문 표준품셈에 항목이 없어 추정치를 유지함.
 export const DEFAULT_PUMSEM_FACTORS: Array<{ name: string; spec: string; laborCode: string; factor: number }> = [
-  { name: "강제전선관(노출)", spec: "아연도 16mm", laborCode: "L01", factor: 0.05 },
-  { name: "강제전선관(노출)", spec: "아연도 22mm", laborCode: "L01", factor: 0.055 },
-  { name: "1종금속제가요전선관", spec: "16mm 일반-비방수", laborCode: "L01", factor: 0.03 },
-  { name: "1종금속제가요전선관 커넥터", spec: "16mm 일반-비방수", laborCode: "L01", factor: 0.02 },
+  // 5-1 전선관 배관: 후강전선관(매입기준) × 1.2(노출 할증, 【해설】②)
+  { name: "강제전선관(노출)", spec: "아연도 16mm", laborCode: "L01", factor: 0.096 },
+  { name: "강제전선관(노출)", spec: "아연도 22mm", laborCode: "L01", factor: 0.132 },
+  // 나사없는 전선관(E, 16mm이하 기준)
+  { name: "1종금속제가요전선관", spec: "16mm 일반-비방수", laborCode: "L01", factor: 0.044 },
+  // 전선관 부속품(커플링/커넥터 등)은 【해설】에 따라 전선관 배관 품에 포함, 별도 품 없음
+  { name: "1종금속제가요전선관 커넥터", spec: "16mm 일반-비방수", laborCode: "L01", factor: 0 },
+  // 5-10 옥내배선: 6㎟ 이하 공통
   { name: "450/750V 내열비닐절연전선(HFIX)", spec: "2.25mm²(4㎟)", laborCode: "L01", factor: 0.01 },
-  { name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.38mm²(1.5㎟)", laborCode: "L01", factor: 0.008 },
-  { name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.78mm²(2.5㎟)", laborCode: "L01", factor: 0.009 },
+  { name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.38mm²(1.5㎟)", laborCode: "L01", factor: 0.01 },
+  { name: "450/750V 내열비닐절연전선(HFIX)", spec: "1.78mm²(2.5㎟)", laborCode: "L01", factor: 0.01 },
+  // 5-23 배선기구 설치 ㈎콘센트류: 접지극부 15A 2P
   { name: "콘센트", spec: "매입-접지형, 15A 250V 2구", laborCode: "L01", factor: 0.08 },
-  { name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로1구", laborCode: "L01", factor: 0.07 },
-  { name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로2구", laborCode: "L01", factor: 0.09 },
-  { name: "LED 조명기구", spec: "평판T-BAR 300*1200 50W", laborCode: "L01", factor: 0.15 },
-  { name: "LED 조명기구", spec: "평판M-BAR 1200*300 50W", laborCode: "L01", factor: 0.15 },
+  // 5-3 박스설치: 연결용박스/노출형박스(콘크리트노출기준)/Outlet박스
+  { name: "풀박스", spec: "150*150*100", laborCode: "L01", factor: 0.04 },
+  { name: "노출박스", spec: "16mm-1방출", laborCode: "L01", factor: 0.29 },
+  { name: "아우트렛박스", spec: "8각54mm", laborCode: "L01", factor: 0.2 },
+  // 5-19: 배선용차단기 30AF이하(0.19) × 2P 70%, 【해설】⑥ 누전차단기는 배선용차단기 품 준용
+  { name: "누전차단기", spec: "2P 30A", laborCode: "L01", factor: 0.133 },
+  // 5-23 ㈏스위치류: 텀블러스위치 단로용(1구는 그대로, 2구는 단로용×2로 근사)
+  { name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로1구", laborCode: "L01", factor: 0.085 },
+  { name: "와이드 스위치", spec: "SUPPER WIDE 15A 250V 1로2구", laborCode: "L01", factor: 0.17 },
+  // 5-25-3 LED등기구설치: 매입 및 반매입, 55W 이하 구간(50W 해당)
+  { name: "LED 조명기구", spec: "평판T-BAR 300*1200 50W", laborCode: "L01", factor: 0.306 },
+  { name: "LED 조명기구", spec: "평판M-BAR 1200*300 50W", laborCode: "L01", factor: 0.306 },
   { name: "감지기(차동식)", spec: "차동식", laborCode: "L01", factor: 0.1 },
 ];
 
