@@ -1,6 +1,18 @@
 // 적산 계산 엔진 — web 프로토타입(app.html)의 computeIlwidaega/computeAll 로직을 그대로 포팅.
 // 실제 샘플 견적(카이저솔루션 내역서)과 대조 검증된 산식입니다.
 
+// 업종(공종분야) — 자재/품셈/원가비율이 업종별로 완전히 다르므로 모든 적산 데이터는 업종 단위로 격리됩니다.
+export const DISCIPLINES = ["electrical", "telecom", "fire", "mechanical", "civil", "architecture"] as const;
+export type Discipline = (typeof DISCIPLINES)[number];
+export const DISCIPLINE_LABELS: Record<Discipline, string> = {
+  electrical: "전기",
+  telecom: "통신",
+  fire: "소방",
+  mechanical: "기계",
+  civil: "토목",
+  architecture: "건축",
+};
+
 export type Material = {
   id: number;
   category: string;

@@ -1,32 +1,42 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import type { Material } from "@/lib/calc";
+import type { Material, Discipline } from "@/lib/calc";
+import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
 export default function PricesPage() {
+  const [discipline, setDiscipline] = useState<Discipline>("electrical");
   const [rows, setRows] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ category: "", name: "", spec: "", unit: "", price: "" });
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    const res = await fetch("/api/materials");
+  useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
+
+  const load = useCallback(async (d: Discipline) => {
+    setLoading(true);
+    const res = await fetch(`/api/materials?discipline=${d}`);
     const data = await res.json();
     setRows(data.materials ?? []);
     setLoading(false);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(discipline); }, [discipline, load]);
+
+  function changeDiscipline(d: Discipline) {
+    setDiscipline(d);
+    saveDiscipline(d);
+  }
 
   async function savePrice(id: number, price: number) {
     await fetch(`/api/materials/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ price }),
     });
-    load();
+    load(discipline);
   }
 
   async function remove(id: number) {
     await fetch(`/api/materials/${id}`, { method: "DELETE" });
-    load();
+    load(discipline);
   }
 
   async function addMaterial(e: React.FormEvent) {
@@ -35,13 +45,13 @@ export default function PricesPage() {
     setBusy(true); setError(null);
     const res = await fetch("/api/materials", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, price: Number(form.price) || 0 }),
+      body: JSON.stringify({ ...form, discipline, price: Number(form.price) || 0 }),
     });
     const d = await res.json();
     setBusy(false);
     if (!res.ok) { setError(d.error ?? "추가 실패"); return; }
     setForm({ category: "", name: "", spec: "", unit: "", price: "" });
-    load();
+    load(discipline);
   }
 
   return (
@@ -49,12 +59,16 @@ export default function PricesPage() {
       <div>
         <h1 className="text-lg font-bold">💰 물가정보</h1>
         <p className="text-xs text-gray-400 mt-1">
-          자재단가 DB. 실제 서비스에서는 매월 구매한 물가자료(종합물가정보 등)로 이 표의 단가를 교체합니다.
+          자재단가 DB. 실제 서비스에서는 매월 구매한 물가자료(종합물가정보 등)로 이 표의 단가를 교체합니다. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
         </p>
       </div>
 
+      <DisciplineTabs value={discipline} onChange={changeDiscipline} />
+
       {loading ? (
         <p className="text-sm text-gray-400">불러오는 중...</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-gray-400">이 업종에는 아직 등록된 자재가 없습니다. 아래에서 추가해보세요.</p>
       ) : (
         <div className="bg-white border rounded-xl overflow-x-auto">
           <table className="w-full text-xs">

@@ -12,26 +12,35 @@ import {
   type Pumsem,
   type RateSettings,
   type BomItem,
+  type Discipline,
 } from "./calc";
 
 const num = (v: string | number | null | undefined): number => (v == null ? 0 : typeof v === "number" ? v : parseFloat(v));
 
-// 신규 계정 최초 접근 시, 검증된 예시 데이터로 자재단가/품셈/노임단가/비율설정/견적서 1건을 자동 시드합니다.
+// 신규 계정이 어떤 업종에 처음 접근하면 그 업종의 rate_settings를 자동 생성합니다.
+// "전기" 업종은 검증된 예시 자재단가/품셈/노임단가/견적서 1건까지 함께 시드합니다.
 // (실제 서비스에서는 이 예시값을 사용자가 자신이 구매한 물가자료/표준품셈으로 교체합니다.)
-export async function ensureSeeded(userId: number) {
+// 다른 업종은 법정 비율의 출발값만 넣어두고, 자재/품셈은 사용자가 직접 채우도록 비워둡니다.
+export async function ensureSeeded(userId: number, discipline: Discipline = "electrical") {
   const db = getDb();
-  const existing = await db.select().from(rateSettings).where(eq(rateSettings.userId, userId)).limit(1);
+  const existing = await db
+    .select()
+    .from(rateSettings)
+    .where(and(eq(rateSettings.userId, userId), eq(rateSettings.discipline, discipline)))
+    .limit(1);
   if (existing.length > 0) return;
 
-  await db.insert(rateSettings).values({ userId, ...stringifyRates(DEFAULT_RATE_SETTINGS) });
+  await db.insert(rateSettings).values({ userId, discipline, ...stringifyRates(DEFAULT_RATE_SETTINGS) });
+
+  if (discipline !== "electrical") return; // 다른 업종은 비율만 시드하고 자재/품셈/예시견적서는 생성하지 않음
 
   await db.insert(laborRates).values(
-    DEFAULT_LABOR_RATES.map((l) => ({ userId, code: l.code, name: l.name, rate: String(l.rate) }))
+    DEFAULT_LABOR_RATES.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
   );
 
   const insertedMaterials = await db
     .insert(materials)
-    .values(DEFAULT_MATERIALS.map((m) => ({ userId, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: String(m.price) })))
+    .values(DEFAULT_MATERIALS.map((m) => ({ userId, discipline, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: String(m.price) })))
     .returning();
 
   const matKey = (name: string, spec: string) => `${name}|${spec}`;
@@ -43,7 +52,7 @@ export async function ensureSeeded(userId: number) {
   }).filter((r): r is NonNullable<typeof r> => r !== null);
   if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows);
 
-  const [project] = await db.insert(projects).values({ userId, name: "예시 견적서" }).returning();
+  const [project] = await db.insert(projects).values({ userId, discipline, name: "예시 견적서" }).returning();
   const bomRows = DEFAULT_BOM.map((b, idx) => {
     const materialId = matIdByKey.get(matKey(b.name, b.spec));
     return materialId ? { projectId: project.id, groupName: b.g, materialId, qty: String(b.qty), sortOrder: idx } : null;
@@ -66,27 +75,36 @@ function stringifyRates(r: RateSettings) {
   };
 }
 
-export async function getMaterials(userId: number): Promise<Material[]> {
+export async function getMaterials(userId: number, discipline: Discipline): Promise<Material[]> {
   const db = getDb();
-  const rows = await db.select().from(materials).where(eq(materials.userId, userId));
+  const rows = await db.select().from(materials).where(and(eq(materials.userId, userId), eq(materials.discipline, discipline)));
   return rows.map((m) => ({ id: m.id, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: num(m.price) }));
 }
 
-export async function getLaborRates(userId: number): Promise<LaborRate[]> {
+export async function getLaborRates(userId: number, discipline: Discipline): Promise<Array<LaborRate & { id: number }>> {
   const db = getDb();
-  const rows = await db.select().from(laborRates).where(eq(laborRates.userId, userId));
-  return rows.map((l) => ({ code: l.code, name: l.name, rate: num(l.rate) }));
+  const rows = await db.select().from(laborRates).where(and(eq(laborRates.userId, userId), eq(laborRates.discipline, discipline)));
+  return rows.map((l) => ({ id: l.id, code: l.code, name: l.name, rate: num(l.rate) }));
 }
 
-export async function getPumsem(userId: number): Promise<Array<Pumsem & { id: number }>> {
+// pumsem 자체엔 discipline 컬럼이 없음 — materialId가 가리키는 자재의 업종으로 자연히 스코프됨
+export async function getPumsem(userId: number, discipline: Discipline): Promise<Array<Pumsem & { id: number }>> {
   const db = getDb();
-  const rows = await db.select().from(pumsem).where(eq(pumsem.userId, userId));
+  const rows = await db
+    .select({ id: pumsem.id, materialId: pumsem.materialId, laborCode: pumsem.laborCode, factor: pumsem.factor })
+    .from(pumsem)
+    .innerJoin(materials, eq(materials.id, pumsem.materialId))
+    .where(and(eq(pumsem.userId, userId), eq(materials.discipline, discipline)));
   return rows.map((p) => ({ id: p.id, materialId: p.materialId, laborCode: p.laborCode, factor: num(p.factor) }));
 }
 
-export async function getRateSettings(userId: number): Promise<RateSettings> {
+export async function getRateSettings(userId: number, discipline: Discipline): Promise<RateSettings> {
   const db = getDb();
-  const rows = await db.select().from(rateSettings).where(eq(rateSettings.userId, userId)).limit(1);
+  const rows = await db
+    .select()
+    .from(rateSettings)
+    .where(and(eq(rateSettings.userId, userId), eq(rateSettings.discipline, discipline)))
+    .limit(1);
   if (rows.length === 0) return { ...DEFAULT_RATE_SETTINGS };
   const r = rows[0];
   return {
@@ -120,7 +138,7 @@ export async function getProjectOwned(userId: number, projectId: number) {
   return rows[0] ?? null;
 }
 
-// ---------- DXF 도면 매핑 (레이어/블록명 ↔ 자재) ----------
+// ---------- DXF 도면 매핑 (레이어/블록명 ↔ 자재, 업종별로 격리) ----------
 
 export type DxfMapping = {
   id: number;
@@ -131,9 +149,12 @@ export type DxfMapping = {
   unitScale: number;
 };
 
-export async function getDxfMappings(userId: number): Promise<DxfMapping[]> {
+export async function getDxfMappings(userId: number, discipline: Discipline): Promise<DxfMapping[]> {
   const db = getDb();
-  const rows = await db.select().from(dxfMappings).where(eq(dxfMappings.userId, userId));
+  const rows = await db
+    .select()
+    .from(dxfMappings)
+    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.discipline, discipline)));
   return rows.map((r) => ({
     id: r.id,
     matchType: r.matchType as "layer" | "block",
@@ -146,13 +167,21 @@ export async function getDxfMappings(userId: number): Promise<DxfMapping[]> {
 
 export async function upsertDxfMapping(
   userId: number,
+  discipline: Discipline,
   m: { matchType: "layer" | "block"; matchName: string; materialId: number; groupName: string; unitScale: number }
 ) {
   const db = getDb();
   const existing = await db
     .select()
     .from(dxfMappings)
-    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.matchType, m.matchType), eq(dxfMappings.matchName, m.matchName)))
+    .where(
+      and(
+        eq(dxfMappings.userId, userId),
+        eq(dxfMappings.discipline, discipline),
+        eq(dxfMappings.matchType, m.matchType),
+        eq(dxfMappings.matchName, m.matchName)
+      )
+    )
     .limit(1);
   if (existing.length > 0) {
     await db
@@ -162,6 +191,7 @@ export async function upsertDxfMapping(
   } else {
     await db.insert(dxfMappings).values({
       userId,
+      discipline,
       matchType: m.matchType,
       matchName: m.matchName,
       materialId: m.materialId,

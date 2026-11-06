@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getProjectOwned, getMaterials, getDxfMappings } from "@/lib/estimateData";
 import { parseDxf } from "@/lib/dxfImport";
+import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const owned = await getProjectOwned(user.id, projectId);
   if (!owned) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
+  const discipline = owned.discipline as Discipline;
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: `DXF 분석에 실패했습니다: ${msg}` }, { status: 400 });
   }
 
-  const [materials, mappings] = await Promise.all([getMaterials(user.id), getDxfMappings(user.id)]);
+  const [materials, mappings] = await Promise.all([getMaterials(user.id, discipline), getDxfMappings(user.id, discipline)]);
   const mapByKey = new Map(mappings.map((m) => [`${m.matchType}:${m.matchName}`, m]));
 
   const groups = parsed.groups.map((g) => {

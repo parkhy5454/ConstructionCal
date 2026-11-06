@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getMaterials, getLaborRates, getPumsem, getRateSettings, getProjectBom, getProjectOwned } from "@/lib/estimateData";
-import { computeAll } from "@/lib/calc";
+import { computeAll, type Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
 
@@ -29,12 +29,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const project = await getProjectOwned(user.id, id);
   if (!project) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
+  const discipline = project.discipline as Discipline;
 
   const [mats, labor, pum, rates, bom] = await Promise.all([
-    getMaterials(user.id),
-    getLaborRates(user.id),
-    getPumsem(user.id),
-    getRateSettings(user.id),
+    getMaterials(user.id, discipline),
+    getLaborRates(user.id, discipline),
+    getPumsem(user.id, discipline),
+    getRateSettings(user.id, discipline),
     getProjectBom(id),
   ]);
   const result = computeAll(mats, pum, labor, rates, bom);

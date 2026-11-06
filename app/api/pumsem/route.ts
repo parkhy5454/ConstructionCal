@@ -3,14 +3,20 @@ import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { pumsem } from "@/lib/schema";
 import { ensureSeeded, getPumsem } from "@/lib/estimateData";
+import { DISCIPLINES, type Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
+
+function parseDiscipline(v: string | null): Discipline {
+  return (DISCIPLINES as readonly string[]).includes(v ?? "") ? (v as Discipline) : "electrical";
+}
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  await ensureSeeded(user.id);
-  const rows = await getPumsem(user.id);
+  const discipline = parseDiscipline(req.nextUrl.searchParams.get("discipline"));
+  await ensureSeeded(user.id, discipline);
+  const rows = await getPumsem(user.id, discipline);
   return NextResponse.json({ pumsem: rows });
 }
 

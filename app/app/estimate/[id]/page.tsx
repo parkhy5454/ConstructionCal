@@ -2,11 +2,11 @@
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { fmt } from "@/lib/calc";
-import type { ComputeResult, Material, BomItem } from "@/lib/calc";
+import { fmt, DISCIPLINE_LABELS } from "@/lib/calc";
+import type { ComputeResult, Material, BomItem, Discipline } from "@/lib/calc";
 
 type ProjectData = {
-  project: { id: number; name: string };
+  project: { id: number; name: string; discipline: Discipline };
   materials: Material[];
   bom: BomItem[];
   result: ComputeResult;
@@ -82,7 +82,12 @@ export default function EstimateDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link href="/app/estimate" className="text-xs text-gray-400 underline">← 견적서 목록</Link>
-          <h1 className="text-lg font-bold mt-1">{project.name}</h1>
+          <h1 className="text-lg font-bold mt-1">
+            {project.name}{" "}
+            <span className="ml-1 text-[10px] font-medium text-[#1f6f54] bg-[#e3efe8] rounded-full px-2 py-0.5 align-middle">
+              {DISCIPLINE_LABELS[project.discipline] ?? project.discipline}
+            </span>
+          </h1>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <Link

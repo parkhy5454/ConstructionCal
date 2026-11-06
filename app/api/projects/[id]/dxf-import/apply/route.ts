@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { bomItems } from "@/lib/schema";
 import { getProjectOwned, upsertDxfMapping } from "@/lib/estimateData";
+import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const owned = await getProjectOwned(user.id, projectId);
   if (!owned) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
+  const discipline = owned.discipline as Discipline;
 
   const body = await req.json().catch(() => null);
   const items: ApplyItem[] = Array.isArray(body?.items) ? body.items : [];
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   for (const it of valid) {
     if (it.saveMapping) {
-      await upsertDxfMapping(user.id, {
+      await upsertDxfMapping(user.id, discipline, {
         matchType: it.matchType,
         matchName: it.matchName,
         materialId: it.materialId,

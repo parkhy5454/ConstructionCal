@@ -25,6 +25,16 @@ type Row = Group & {
   skip: boolean;
 };
 
+type ApplyItem = {
+  matchType: "layer" | "block";
+  matchName: string;
+  materialId: number;
+  groupName: string;
+  unitScale: number;
+  rawQty: number;
+  saveMapping: boolean;
+};
+
 export default function DxfImportPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -36,13 +46,39 @@ export default function DxfImportPage() {
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [autoNotice, setAutoNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function rowToItem(r: Row): ApplyItem | null {
+    if (r.skip || !r.materialId || !r.groupName.trim()) return null;
+    return {
+      matchType: r.matchType,
+      matchName: r.matchName,
+      materialId: Number(r.materialId),
+      groupName: r.groupName.trim(),
+      unitScale: Number(r.unitScale) || 0,
+      rawQty: r.rawQty,
+      saveMapping: r.saveMapping,
+    };
+  }
+
+  async function applyItems(items: ApplyItem[]) {
+    const res = await fetch(`/api/projects/${projectId}/dxf-import/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error ?? "추가에 실패했습니다.");
+    return d.inserted as number;
+  }
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
     setError(null);
+    setAutoNotice(null);
     setLoading(true);
     setRows(null);
     try {
@@ -54,18 +90,40 @@ export default function DxfImportPage() {
         setError(d.error ?? "분석에 실패했습니다.");
         return;
       }
+      const groups: Group[] = d.groups ?? [];
       setMaterials(d.materials ?? []);
       setUnsupported(d.unsupported ?? []);
-      setRows(
-        (d.groups as Group[]).map((g) => ({
-          ...g,
-          materialId: g.suggestedMaterialId ? String(g.suggestedMaterialId) : "",
-          groupName: g.suggestedGroupName || "",
-          unitScale: String(g.suggestedUnitScale),
-          saveMapping: true,
-          skip: !g.suggestedMaterialId,
-        }))
-      );
+
+      const builtRows: Row[] = groups.map((g) => ({
+        ...g,
+        materialId: g.suggestedMaterialId ? String(g.suggestedMaterialId) : "",
+        groupName: g.suggestedGroupName || "",
+        unitScale: String(g.suggestedUnitScale),
+        saveMapping: true,
+        skip: !g.suggestedMaterialId,
+      }));
+
+      // 이전에 매칭을 저장해둔 레이어/블록이라 전부 자동으로 자재가 매칭됐다면,
+      // 검토 화면 없이 바로 BOM에 반영하고 견적서로 이동합니다 (풀 자동 반영).
+      const allAutoMapped = builtRows.length > 0 && builtRows.every((r) => !!r.suggestedMaterialId);
+      if (allAutoMapped) {
+        setLoading(false);
+        setSubmitting(true);
+        try {
+          const items = builtRows.map(rowToItem).filter((x): x is ApplyItem => x !== null);
+          const inserted = await applyItems(items);
+          setAutoNotice(`✅ 저장된 매핑으로 ${inserted}개 항목을 자동으로 반영했습니다. 견적서로 이동합니다...`);
+          setTimeout(() => router.push(`/app/estimate/${projectId}`), 900);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "자동 반영에 실패했습니다. 아래에서 직접 확인해주세요.");
+          setRows(builtRows);
+        } finally {
+          setSubmitting(false);
+        }
+        return;
+      }
+
+      setRows(builtRows);
     } catch {
       setError("네트워크 오류가 발생했습니다.");
     } finally {
@@ -79,17 +137,7 @@ export default function DxfImportPage() {
 
   async function submit() {
     if (!rows) return;
-    const items = rows
-      .filter((r) => !r.skip && r.materialId && r.groupName.trim())
-      .map((r) => ({
-        matchType: r.matchType,
-        matchName: r.matchName,
-        materialId: Number(r.materialId),
-        groupName: r.groupName.trim(),
-        unitScale: Number(r.unitScale) || 0,
-        rawQty: r.rawQty,
-        saveMapping: r.saveMapping,
-      }));
+    const items = rows.map(rowToItem).filter((x): x is ApplyItem => x !== null);
     if (items.length === 0) {
       setError("추가할 항목을 1개 이상 선택하고 자재/공종을 지정하세요.");
       return;
@@ -97,23 +145,16 @@ export default function DxfImportPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/dxf-import/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-      const d = await res.json();
-      if (!res.ok) {
-        setError(d.error ?? "추가에 실패했습니다.");
-        return;
-      }
+      await applyItems(items);
       router.push(`/app/estimate/${projectId}`);
-    } catch {
-      setError("네트워크 오류가 발생했습니다.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "추가에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  const unmappedCount = rows ? rows.filter((r) => !r.suggestedMaterialId).length : 0;
 
   return (
     <div className="space-y-5">
@@ -121,8 +162,9 @@ export default function DxfImportPage() {
         <Link href={`/app/estimate/${projectId}`} className="text-xs text-gray-400 underline">← 견적서로 돌아가기</Link>
         <h1 className="text-lg font-bold mt-1">📐 도면으로 물량 가져오기</h1>
         <p className="text-xs text-gray-500 mt-1">
-          CAD 도면을 <b>DXF</b> 파일로 내보낸 뒤 업로드하면, 레이어별 전선관/전선 길이와 블록(콘센트·스위치·조명 등) 개수를 자동으로 집계합니다.
+          CAD 도면을 <b>DXF</b> 파일로 내보낸 뒤 업로드하면, 레이어별 전선관/전선 길이와 블록(콘센트·스위치·조명 등) 개수를 자동으로 집계해 견적서에 반영합니다.
           DWG 파일은 CAD 프로그램에서 &ldquo;다른 이름으로 저장 → DXF&rdquo;로 변환 후 업로드해주세요.
+          처음 한 번 자재를 매칭하고 저장해두면, 같은 레이어/블록 체계를 쓰는 다음 도면부터는 업로드만으로 견적서까지 전부 자동 반영됩니다.
         </p>
       </div>
 
@@ -130,6 +172,8 @@ export default function DxfImportPage() {
         <input type="file" accept=".dxf" onChange={onFileChange} className="text-sm" />
         {fileName && <p className="text-xs text-gray-400">{fileName}</p>}
         {loading && <p className="text-sm text-gray-400">분석 중...</p>}
+        {submitting && !rows && <p className="text-sm text-gray-400">반영 중...</p>}
+        {autoNotice && <p className="text-sm text-[#1f6f54] font-semibold">{autoNotice}</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         {unsupported.length > 0 && (
           <p className="text-xs text-amber-600">
@@ -145,8 +189,11 @@ export default function DxfImportPage() {
       {rows && rows.length > 0 && (
         <section className="bg-white border rounded-xl p-4 space-y-3">
           <p className="text-xs text-gray-500">
-            각 레이어/블록에 매칭할 자재와 공종을 지정하세요. &ldquo;환산배수&rdquo;는 도면 단위를 자재 단위(길이: m, 개수: 개)로 바꾸는 배수입니다.
-            예: 도면이 mm 단위면 길이 항목은 0.001을 곱해 m로 환산합니다. 체크박스를 해제하면 해당 항목은 건너뜁니다.
+            {unmappedCount > 0
+              ? `새로운 레이어/블록 ${unmappedCount}개는 자동 매칭 기록이 없어 직접 지정이 필요합니다. 나머지는 이전에 저장한 매핑으로 미리 채워져 있습니다.`
+              : "모든 항목이 자동으로 채워졌습니다. 확인 후 아래 버튼으로 반영하세요."}
+            {" "}&ldquo;환산배수&rdquo;는 도면 단위를 자재 단위(길이: m, 개수: 개)로 바꾸는 배수입니다. 예: 도면이 mm 단위면 길이 항목은 0.001을 곱해 m로 환산합니다.
+            매핑저장을 체크하면 다음 도면부터는 이 레이어/블록이 자동으로 채워집니다.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
@@ -167,7 +214,7 @@ export default function DxfImportPage() {
                 {rows.map((r) => {
                   const final = Math.round((r.rawQty * (Number(r.unitScale) || 0)) * 100) / 100;
                   return (
-                    <tr key={r.key} className="border-t">
+                    <tr key={r.key} className={`border-t ${!r.suggestedMaterialId ? "bg-amber-50" : ""}`}>
                       <td className="p-2">
                         <input type="checkbox" checked={!r.skip} onChange={(e) => updateRow(r.key, { skip: !e.target.checked })} />
                       </td>
@@ -223,7 +270,7 @@ export default function DxfImportPage() {
               disabled={submitting}
               className="bg-[#1f6f54] text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
             >
-              {submitting ? "추가 중..." : "선택한 항목을 BOM에 추가"}
+              {submitting ? "반영 중..." : "선택한 항목을 BOM에 추가"}
             </button>
           </div>
         </section>

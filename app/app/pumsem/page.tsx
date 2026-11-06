@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { computeIlwidaega, fmt } from "@/lib/calc";
-import type { Material, LaborRate, Pumsem } from "@/lib/calc";
+import type { Material, LaborRate, Pumsem, Discipline } from "@/lib/calc";
+import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
 export default function PumsemPage() {
+  const [discipline, setDiscipline] = useState<Discipline>("electrical");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [laborRates, setLaborRates] = useState<LaborRate[]>([]);
   const [rows, setRows] = useState<Array<Pumsem & { id: number }>>([]);
@@ -12,9 +14,12 @@ export default function PumsemPage() {
   const [form, setForm] = useState({ materialId: "", laborCode: "", factor: "" });
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
+
+  const load = useCallback(async (d: Discipline) => {
+    setLoading(true);
     const [mRes, lRes, pRes] = await Promise.all([
-      fetch("/api/materials"), fetch("/api/labor-rates"), fetch("/api/pumsem"),
+      fetch(`/api/materials?discipline=${d}`), fetch(`/api/labor-rates?discipline=${d}`), fetch(`/api/pumsem?discipline=${d}`),
     ]);
     const [mData, lData, pData] = await Promise.all([mRes.json(), lRes.json(), pRes.json()]);
     setMaterials(mData.materials ?? []);
@@ -22,17 +27,22 @@ export default function PumsemPage() {
     setRows(pData.pumsem ?? []);
     setLoading(false);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(discipline); }, [discipline, load]);
+
+  function changeDiscipline(d: Discipline) {
+    setDiscipline(d);
+    saveDiscipline(d);
+  }
 
   async function saveFactor(id: number, factor: number) {
     await fetch(`/api/pumsem/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ factor }),
     });
-    load();
+    load(discipline);
   }
   async function remove(id: number) {
     await fetch(`/api/pumsem/${id}`, { method: "DELETE" });
-    load();
+    load(discipline);
   }
   async function addRow(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +56,7 @@ export default function PumsemPage() {
     setBusy(false);
     if (!res.ok) { setError(d.error ?? "추가 실패"); return; }
     setForm({ materialId: "", laborCode: "", factor: "" });
-    load();
+    load(discipline);
   }
 
   const matById = new Map(materials.map((m) => [m.id, m]));
@@ -58,8 +68,10 @@ export default function PumsemPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-lg font-bold">📐 표준품셈</h1>
-        <p className="text-xs text-gray-400 mt-1">자재 1단위를 시공하는 데 필요한 단위당 공수(인/단위)를 관리합니다.</p>
+        <p className="text-xs text-gray-400 mt-1">자재 1단위를 시공하는 데 필요한 단위당 공수(인/단위)를 관리합니다. 업종별로 표준품셈 책이 다르므로 아래에서 업종을 선택하세요.</p>
       </div>
+
+      <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 
       {loading ? (
         <p className="text-sm text-gray-400">불러오는 중...</p>

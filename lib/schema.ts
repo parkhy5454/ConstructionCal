@@ -12,6 +12,8 @@ import {
 
 export const roleEnum = pgEnum("role", ["user", "admin"]);
 export const statusEnum = pgEnum("status", ["pending", "approved", "rejected"]);
+// 업종(공종분야) — 전기/통신/소방/기계/토목/건축: 자재·품셈·원가비율이 업종별로 완전히 다름
+export const disciplineEnum = pgEnum("discipline", ["electrical", "telecom", "fire", "mechanical", "civil", "architecture"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -43,6 +45,7 @@ export const adminActions = pgTable("admin_actions", {
 export const materials = pgTable("materials", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  discipline: disciplineEnum("discipline").notNull().default("electrical"),
   category: varchar("category", { length: 40 }).notNull().default(""), // 전선관|전선|기구 등 (배관부속재/소모잡자재 산식에 사용)
   name: varchar("name", { length: 200 }).notNull(),
   spec: varchar("spec", { length: 200 }).notNull().default(""),
@@ -55,11 +58,12 @@ export const materials = pgTable("materials", {
 export const laborRates = pgTable("labor_rates", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  discipline: disciplineEnum("discipline").notNull().default("electrical"),
   code: varchar("code", { length: 20 }).notNull(),
   name: varchar("name", { length: 60 }).notNull(),
   rate: numeric("rate", { precision: 14, scale: 2 }).notNull().default("0"),
 }, (t) => ({
-  userCode: unique().on(t.userId, t.code),
+  userCode: unique().on(t.userId, t.discipline, t.code),
 }));
 
 // 품셈: 자재 1개에 대해 단위당 공수(인/단위) — 자재단가 × 품셈공수 × 노임단가 = 일위대가
@@ -73,10 +77,12 @@ export const pumsem = pgTable("pumsem", {
   userMaterial: unique().on(t.userId, t.materialId),
 }));
 
-// 원가 계산 비율 (간접노무비/기타경비/일반관리비/이윤/부가세 등) — 계정당 1행
+// 원가 계산 비율 (간접노무비/기타경비/일반관리비/이윤/부가세 등) — 계정×업종당 1행
+// (전기공사업/정보통신공사업/소방시설공사업/기계설비공사업 등 업종별로 법정 고시 비율이 다름)
 export const rateSettings = pgTable("rate_settings", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique(),
+  userId: integer("user_id").notNull(),
+  discipline: disciplineEnum("discipline").notNull().default("electrical"),
   indirectLabor: numeric("indirect_labor", { precision: 6, scale: 4 }).notNull().default("0.08"),
   etcExpense: numeric("etc_expense", { precision: 6, scale: 4 }).notNull().default("0.0549"),
   industrialIns: numeric("industrial_ins", { precision: 6, scale: 4 }).notNull().default("0.0373"),
@@ -87,12 +93,15 @@ export const rateSettings = pgTable("rate_settings", {
   pipeAccessory: numeric("pipe_accessory", { precision: 6, scale: 4 }).notNull().default("0.15"),
   consumable: numeric("consumable", { precision: 6, scale: 4 }).notNull().default("0.02"),
   toolLoss: numeric("tool_loss", { precision: 6, scale: 4 }).notNull().default("0.03"),
-});
+}, (t) => ({
+  userDiscipline: unique().on(t.userId, t.discipline),
+}));
 
 // 견적서(프로젝트)
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  discipline: disciplineEnum("discipline").notNull().default("electrical"),
   name: varchar("name", { length: 120 }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -112,11 +121,12 @@ export const bomItems = pgTable("bom_items", {
 export const dxfMappings = pgTable("dxf_mappings", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  discipline: disciplineEnum("discipline").notNull().default("electrical"),
   matchType: varchar("match_type", { length: 10 }).notNull(), // "layer" | "block"
   matchName: varchar("match_name", { length: 200 }).notNull(), // 레이어명 또는 블록명
   materialId: integer("material_id").notNull(),
   groupName: varchar("group_name", { length: 60 }).notNull().default(""), // 자동 배정할 공종
   unitScale: numeric("unit_scale", { precision: 14, scale: 6 }).notNull().default("1"), // 도면단위→자재단위 환산 배수 (길이: mm도면이면 0.001 등, 개수: 1)
 }, (t) => ({
-  userMatch: unique().on(t.userId, t.matchType, t.matchName),
+  userMatch: unique().on(t.userId, t.discipline, t.matchType, t.matchName),
 }));
