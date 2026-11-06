@@ -303,7 +303,7 @@ export const DEFAULT_BOM: Array<{ g: string; name: string; spec: string; qty: nu
 ];
 
 // 가격 출처: 종합물가정보(한국물가정보) 2026년 11월호, 10장 정보통신(전화·통신장치/방송음향기기/네트워크장비).
-// 표준품셈(공수) 자료는 아직 확보되지 않아 이 업종은 재료비만 반영되고 노무비는 0으로 계산됩니다.
+// 표준품셈(공수) 데이터는 아래 DEFAULT_PUMSEM_FACTORS_TELECOM 참고(2026년 정보통신공사 표준품셈 기반).
 export const DEFAULT_MATERIALS_TELECOM: Array<Omit<Material, "id">> = [
   { category: "통신단자함", name: "전화단자함(국선단자함)", spec: "40×100P, 매입연강", unit: "Set", price: 243930 },
   { category: "통신단자함", name: "MDF(주배선반)", spec: "100P보호기 100P당", unit: "개", price: 308880 },
@@ -348,6 +348,74 @@ export const DEFAULT_MATERIALS_FIRE: Array<Omit<Material, "id">> = [
 export const DEFAULT_MATERIALS_BY_DISCIPLINE: Partial<Record<Discipline, Array<Omit<Material, "id">>>> = {
   telecom: DEFAULT_MATERIALS_TELECOM,
   fire: DEFAULT_MATERIALS_FIRE,
+};
+
+// ---------- 통신(telecom) 표준품셈 — 2026년 정보통신공사 표준품셈(한국정보통신산업연구원) ----------
+// 노임단가 출처: 2026년 상반기 적용 정보통신부문 시중노임단가(한국정보통신공사협회 공표, 2026.1.1~8.31 적용).
+export const DEFAULT_LABOR_RATES_TELECOM: LaborRate[] = [
+  { code: "T01", name: "통신설비공", rate: 315528 },
+  { code: "T02", name: "통신내선공", rate: 284880 },
+  { code: "T03", name: "통신케이블공", rate: 436224 },
+  { code: "T04", name: "보통인부", rate: 172068 },
+];
+
+// 출처: 2026년 정보통신공사 표준품셈 — 3-3 단자함, 4-1-2-2 광분배함(반), 4-3-1/4-3-3 꼬임케이블·MDF,
+// 3-1-1 구내통신배관(가요전선관), 7-1 송수신기, 7-11-2 구내방송설비, 7-12-3 분배기및분기기, 8-1-1 네트워크설비,
+// 8-2-1/8-2-2 홈네트워크(Wall PAD·비디오폰·현관공동기).
+// 현관카메라·실링스피커·업무용무전기는 책에 동일 품목이 없어 인접 품목(현관공동기/스피커브라켓/이동국송수신기)을
+// 근거로 한 근사치이며, 실제 현장 조건에 따라 조정이 필요합니다.
+export const DEFAULT_PUMSEM_FACTORS_TELECOM: Array<{ name: string; spec: string; laborCode: string; factor: number }> = [
+  // 3-3-2 배선반(단자함 100P 이하 기준)
+  { name: "전화단자함(국선단자함)", spec: "40×100P, 매입연강", laborCode: "T03", factor: 0.69 },
+  { name: "전화단자함(국선단자함)", spec: "40×100P, 매입연강", laborCode: "T04", factor: 0.49 },
+  // 4-3-3 MDF 설치(공 철가기준, 열단위 → 100P당 근사)
+  { name: "MDF(주배선반)", spec: "100P보호기 100P당", laborCode: "T01", factor: 1.55 },
+  { name: "MDF(주배선반)", spec: "100P보호기 100P당", laborCode: "T04", factor: 0.78 },
+  // 7-12-3-1 옥외형 분배기(분기기) 8분기기 기준
+  { name: "TV분배기함", spec: "300×400mm, 매입연강", laborCode: "T01", factor: 0.38 },
+  { name: "TV분배기함", spec: "300×400mm, 매입연강", laborCode: "T04", factor: 0.27 },
+  // 8-2-1-2 세대 Wall PAD(기기매입박스점검+기기설치+터미널보드+장치별기능·종합시험 합산)
+  { name: "월패드", spec: "일반형 10인치", laborCode: "T01", factor: 1.33 },
+  { name: "월패드", spec: "일반형 10인치", laborCode: "T02", factor: 0.95 },
+  // 8-2-2-6 비디오폰 설치
+  { name: "비디오폰", spec: "표준형", laborCode: "T01", factor: 0.25 },
+  // 8-2-1-7 현관공동기(벽부형) — 인터폰을 공동현관기 역할로 근사(기기매입박스점검+설치+IP세팅+기능시험 합산)
+  { name: "인터폰", spec: "공동현관/경비실 연동", laborCode: "T01", factor: 1.16 },
+  { name: "인터폰", spec: "공동현관/경비실 연동", laborCode: "T02", factor: 0.91 },
+  // 현관카메라: 동일 품목이 없어 현관공동기 품셈의 일부를 근사 적용(추정치)
+  { name: "현관카메라", spec: "컬러CCD", laborCode: "T01", factor: 0.2 },
+  { name: "현관카메라", spec: "컬러CCD", laborCode: "T02", factor: 0.15 },
+  // 4-1-2-2 광분배반(FDF)
+  { name: "FDF(광단자함)", spec: "4Port", laborCode: "T01", factor: 0.23 },
+  { name: "FDF(광단자함)", spec: "4Port", laborCode: "T04", factor: 0.23 },
+  // 8-1-1 네트워크 설비(공통) 스위칭허브
+  { name: "네트워크스위치(PoE)", spec: "1G SFP 2Port/UTP 8Port", laborCode: "T01", factor: 0.36 },
+  { name: "네트워크스위치(PoE)", spec: "1G SFP 2Port/UTP 8Port", laborCode: "T04", factor: 0.22 },
+  // 4-3-1 꼬임케이블 포설(UTP/STP/FTP 구내 4P, 10m당 0.15 → m당 환산)
+  { name: "LAN케이블", spec: "Cat.5E, 4P", laborCode: "T03", factor: 0.015 },
+  { name: "LAN케이블(고급)", spec: "Cat.6E, 4P", laborCode: "T03", factor: 0.015 },
+  // 3-1-1 구내통신배관 — 금속제 가요 전선관(호칭22/28, 10m당 → m당 환산)
+  { name: "통신용 플렉시블전선관", spec: "22mm", laborCode: "T02", factor: 0.059 },
+  { name: "통신용 플렉시블전선관", spec: "28mm", laborCode: "T02", factor: 0.072 },
+  // 실링스피커: 동일 품목이 없어 월스피커(스피커브라켓) 대비 간이설치로 근사(추정치)
+  { name: "실링스피커", spec: "10W, 매입형", laborCode: "T01", factor: 0.1 },
+  // 7-11-2-3 프로오디오 설비 스피커 브라켓(벽부형)
+  { name: "월스피커", spec: "10W, 벽부형", laborCode: "T01", factor: 0.11 },
+  // 7-11-2-1 비상방송설비 Power AMP(산업기사 시험품은 통신설비공으로 근사 합산)
+  { name: "비상방송용 앰프", spec: "360W급, 8채널, 2U", laborCode: "T01", factor: 0.52 },
+  // 업무용 무전기: 이동국 송수신기 품셈 대비 소형 휴대장비로 근사(추정치)
+  { name: "업무용 무전기", spec: "UHF, 4.8W", laborCode: "T01", factor: 0.2 },
+  { name: "업무용 무전기", spec: "UHF, 4.8W", laborCode: "T04", factor: 0.1 },
+];
+
+export const DEFAULT_LABOR_RATES_BY_DISCIPLINE: Partial<Record<Discipline, LaborRate[]>> = {
+  telecom: DEFAULT_LABOR_RATES_TELECOM,
+};
+
+export const DEFAULT_PUMSEM_FACTORS_BY_DISCIPLINE: Partial<
+  Record<Discipline, Array<{ name: string; spec: string; laborCode: string; factor: number }>>
+> = {
+  telecom: DEFAULT_PUMSEM_FACTORS_TELECOM,
 };
 
 export function fmt(n: number): string {
