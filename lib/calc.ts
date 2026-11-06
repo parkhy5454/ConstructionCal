@@ -325,7 +325,7 @@ export const DEFAULT_MATERIALS_TELECOM: Array<Omit<Material, "id">> = [
 ];
 
 // 가격 출처: 종합물가정보(한국물가정보) 2026년 11월호, 11장 소방·안전·화학(소방시설/화재경보기).
-// 표준품셈(공수) 자료는 아직 확보되지 않아 이 업종은 재료비만 반영되고 노무비는 0으로 계산됩니다.
+// 표준품셈(공수) 데이터는 아래 DEFAULT_PUMSEM_FACTORS_FIRE 참고(2026년 소방공사 표준품셈 기반).
 export const DEFAULT_MATERIALS_FIRE: Array<Omit<Material, "id">> = [
   { category: "소화기", name: "ABC분말소화기", spec: "3.3kg, 약제충전", unit: "개", price: 25000 },
   { category: "소화전설비", name: "옥내소화전함", spec: "25A×25M, 드럼형, 강재", unit: "개", price: 380000 },
@@ -349,6 +349,49 @@ export const DEFAULT_MATERIALS_BY_DISCIPLINE: Partial<Record<Discipline, Array<O
   telecom: DEFAULT_MATERIALS_TELECOM,
   fire: DEFAULT_MATERIALS_FIRE,
 };
+
+// ---------- 소방(fire) 표준품셈 — 2026년 소방공사 표준품셈(한국소방시설협회, 정부승인) ----------
+// 노임단가 출처: 2026.1.1 적용 시중노임단가(내선전공/배관공/보통인부, 공사부문 공표).
+export const DEFAULT_LABOR_RATES_FIRE: LaborRate[] = [
+  { code: "F01", name: "내선전공", rate: 273676 },
+  { code: "F02", name: "배관공", rate: 247897 },
+  { code: "F03", name: "보통인부", rate: 172068 },
+];
+
+// 출처: 2026년 소방공사 표준품셈 — 6-1-1 옥내소화전 설치, 6-3-1 스프링클러 설치,
+// 8-1-1-1 Spot형 감지기, 8-1-2 발신기, 9-2-3 통로유도등, 9-3-1 비상조명등(벽부형).
+// ABC분말소화기(휴대용)는 책에 설치 품셈이 없어(단순 비치 품목) 노무비 0으로 둡니다.
+// 광전식연기감지기·수동발신기세트는 동일/인접 품목을 근거로 한 근사치입니다.
+export const DEFAULT_PUMSEM_FACTORS_FIRE: Array<{ name: string; spec: string; laborCode: string; factor: number }> = [
+  // 6-1-1 옥내소화전 설치 — 옥내소화전함(매입형 기준)
+  { name: "옥내소화전함", spec: "25A×25M, 드럼형, 강재", laborCode: "F02", factor: 0.906 },
+  { name: "옥내소화전함", spec: "25A×25M, 드럼형, 강재", laborCode: "F03", factor: 0.375 },
+  // 호스릴형(저층형)은 노출형 기준 적용
+  { name: "호스릴옥내소화전함", spec: "저층형, 호스 25M", laborCode: "F02", factor: 0.816 },
+  { name: "호스릴옥내소화전함", spec: "저층형, 호스 25M", laborCode: "F03", factor: 0.338 },
+  // 6-3-1 스프링클러 설치 — 알람밸브(습식, Ø100)
+  { name: "습식 알람밸브", spec: "100A, 10K, 그루브형", laborCode: "F02", factor: 1.66 },
+  // 준비작동식 밸브(프리액션, Ø100)
+  { name: "프리액션밸브(개방형)", spec: "100A, 1.0MPa", laborCode: "F02", factor: 2.01 },
+  // 스프링클러 헤드
+  { name: "스프링클러헤드", spec: "72℃, 표준반응형, 플러셔형", laborCode: "F02", factor: 0.092 },
+  { name: "스프링클러헤드", spec: "72℃, 표준반응형, 플러셔형", laborCode: "F03", factor: 0.037 },
+  // 8-1-1-1 Spot형 감지기(차동식·정온식·보상식, 노출형)
+  { name: "차동식스포트형감지기", spec: "2종, 보통형", laborCode: "F01", factor: 0.13 },
+  { name: "정온식스포트형감지기", spec: "특종, 보통형, 70℃", laborCode: "F01", factor: 0.13 },
+  // 광전식연기감지기: Spot형 감지기 품셈으로 근사 적용(추정치)
+  { name: "광전식연기감지기", spec: "2종", laborCode: "F01", factor: 0.13 },
+  // 8-1-2 발신기(P-2, 보통형) / 경종 / 표시등
+  { name: "발신기", spec: "P형 1종", laborCode: "F01", factor: 0.3 },
+  { name: "경종", spec: "90dB", laborCode: "F01", factor: 0.15 },
+  { name: "표시등", spec: "DC24V, 사각형", laborCode: "F01", factor: 0.2 },
+  // 수동발신기세트(발신기+경종+표시등 통합형): 개별 품셈 합산(0.30+0.15+0.20)
+  { name: "수동발신기세트", spec: "P형, 전강판", laborCode: "F01", factor: 0.65 },
+  // 9-2-3 통로유도등(벽부형, 계단통로)
+  { name: "통로유도등", spec: "LED, 소형, 60분용", laborCode: "F01", factor: 0.118 },
+  // 9-3-1 비상조명등(벽부형)
+  { name: "비상조명등", spec: "소화전내장형", laborCode: "F01", factor: 0.142 },
+];
 
 // ---------- 통신(telecom) 표준품셈 — 2026년 정보통신공사 표준품셈(한국정보통신산업연구원) ----------
 // 노임단가 출처: 2026년 상반기 적용 정보통신부문 시중노임단가(한국정보통신공사협회 공표, 2026.1.1~8.31 적용).
@@ -410,12 +453,14 @@ export const DEFAULT_PUMSEM_FACTORS_TELECOM: Array<{ name: string; spec: string;
 
 export const DEFAULT_LABOR_RATES_BY_DISCIPLINE: Partial<Record<Discipline, LaborRate[]>> = {
   telecom: DEFAULT_LABOR_RATES_TELECOM,
+  fire: DEFAULT_LABOR_RATES_FIRE,
 };
 
 export const DEFAULT_PUMSEM_FACTORS_BY_DISCIPLINE: Partial<
   Record<Discipline, Array<{ name: string; spec: string; laborCode: string; factor: number }>>
 > = {
   telecom: DEFAULT_PUMSEM_FACTORS_TELECOM,
+  fire: DEFAULT_PUMSEM_FACTORS_FIRE,
 };
 
 export function fmt(n: number): string {
