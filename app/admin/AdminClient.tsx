@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 
 type AdminUser = {
   id: number;
@@ -65,6 +66,9 @@ export default function AdminClient({ selfId }: { selfId: number }) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/app/home" className="text-xs text-gray-400 underline shrink-0">← 홈으로</Link>
+      </div>
       <h1 className="text-xl font-bold mb-6">관리자 · 가입자 관리</h1>
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {loading ? (
