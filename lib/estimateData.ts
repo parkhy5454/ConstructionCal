@@ -7,6 +7,7 @@ import {
   DEFAULT_PUMSEM_FACTORS,
   DEFAULT_RATE_SETTINGS,
   DEFAULT_BOM,
+  DEFAULT_MATERIALS_BY_DISCIPLINE,
   type Material,
   type LaborRate,
   type Pumsem,
@@ -16,48 +17,66 @@ import {
 } from "./calc";
 
 const num = (v: string | number | null | undefined): number => (v == null ? 0 : typeof v === "number" ? v : parseFloat(v));
+const matKey = (name: string, spec: string) => `${name}|${spec}`;
 
 // 신규 계정이 어떤 업종에 처음 접근하면 그 업종의 rate_settings를 자동 생성합니다.
 // "전기" 업종은 검증된 예시 자재단가/품셈/노임단가/견적서 1건까지 함께 시드합니다.
 // (실제 서비스에서는 이 예시값을 사용자가 자신이 구매한 물가자료/표준품셈으로 교체합니다.)
-// 다른 업종은 법정 비율의 출발값만 넣어두고, 자재/품셈은 사용자가 직접 채우도록 비워둡니다.
+// 통신/소방 업종은 종합물가정보에서 확인된 자재단가만 시드합니다(표준품셈 자료가 아직 없어 품셈·예시견적서는 생성하지 않음).
+// 그 외 업종은 법정 비율의 출발값만 넣어두고, 자재/품셈은 사용자가 직접 채우도록 비워둡니다.
 export async function ensureSeeded(userId: number, discipline: Discipline = "electrical") {
   const db = getDb();
-  const existing = await db
+  const existingRates = await db
     .select()
     .from(rateSettings)
     .where(and(eq(rateSettings.userId, userId), eq(rateSettings.discipline, discipline)))
     .limit(1);
-  if (existing.length > 0) return;
+  if (existingRates.length === 0) {
+    await db.insert(rateSettings).values({ userId, discipline, ...stringifyRates(DEFAULT_RATE_SETTINGS) });
+  }
 
-  await db.insert(rateSettings).values({ userId, discipline, ...stringifyRates(DEFAULT_RATE_SETTINGS) });
+  if (discipline === "electrical") {
+    if (existingRates.length > 0) return; // 전기는 이미 전체 시드가 끝난 계정이므로 더 할 일 없음
 
-  if (discipline !== "electrical") return; // 다른 업종은 비율만 시드하고 자재/품셈/예시견적서는 생성하지 않음
+    await db.insert(laborRates).values(
+      DEFAULT_LABOR_RATES.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
+    );
 
-  await db.insert(laborRates).values(
-    DEFAULT_LABOR_RATES.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
+    const insertedMaterials = await db
+      .insert(materials)
+      .values(DEFAULT_MATERIALS.map((m) => ({ userId, discipline, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: String(m.price) })))
+      .returning();
+
+    const matIdByKey = new Map(insertedMaterials.map((m) => [matKey(m.name, m.spec), m.id]));
+
+    const pumsemRows = DEFAULT_PUMSEM_FACTORS.map((p) => {
+      const materialId = matIdByKey.get(matKey(p.name, p.spec));
+      return materialId ? { userId, materialId, laborCode: p.laborCode, factor: String(p.factor) } : null;
+    }).filter((r): r is NonNullable<typeof r> => r !== null);
+    if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows);
+
+    const [project] = await db.insert(projects).values({ userId, discipline, name: "예시 견적서" }).returning();
+    const bomRows = DEFAULT_BOM.map((b, idx) => {
+      const materialId = matIdByKey.get(matKey(b.name, b.spec));
+      return materialId ? { projectId: project.id, groupName: b.g, materialId, qty: String(b.qty), sortOrder: idx } : null;
+    }).filter((r): r is NonNullable<typeof r> => r !== null);
+    if (bomRows.length > 0) await db.insert(bomItems).values(bomRows);
+    return;
+  }
+
+  // 전기 외 업종: 자재단가 시드 데이터가 있고 아직 자재가 하나도 없으면 1회성으로 채워넣음
+  const defaults = DEFAULT_MATERIALS_BY_DISCIPLINE[discipline];
+  if (!defaults || defaults.length === 0) return;
+  const existingMaterials = await db
+    .select({ id: materials.id })
+    .from(materials)
+    .where(and(eq(materials.userId, userId), eq(materials.discipline, discipline)))
+    .limit(1);
+  if (existingMaterials.length > 0) return;
+
+  await db.insert(materials).values(
+    defaults.map((m) => ({ userId, discipline, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: String(m.price) }))
   );
-
-  const insertedMaterials = await db
-    .insert(materials)
-    .values(DEFAULT_MATERIALS.map((m) => ({ userId, discipline, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: String(m.price) })))
-    .returning();
-
-  const matKey = (name: string, spec: string) => `${name}|${spec}`;
-  const matIdByKey = new Map(insertedMaterials.map((m) => [matKey(m.name, m.spec), m.id]));
-
-  const pumsemRows = DEFAULT_PUMSEM_FACTORS.map((p) => {
-    const materialId = matIdByKey.get(matKey(p.name, p.spec));
-    return materialId ? { userId, materialId, laborCode: p.laborCode, factor: String(p.factor) } : null;
-  }).filter((r): r is NonNullable<typeof r> => r !== null);
-  if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows);
-
-  const [project] = await db.insert(projects).values({ userId, discipline, name: "예시 견적서" }).returning();
-  const bomRows = DEFAULT_BOM.map((b, idx) => {
-    const materialId = matIdByKey.get(matKey(b.name, b.spec));
-    return materialId ? { projectId: project.id, groupName: b.g, materialId, qty: String(b.qty), sortOrder: idx } : null;
-  }).filter((r): r is NonNullable<typeof r> => r !== null);
-  if (bomRows.length > 0) await db.insert(bomItems).values(bomRows);
 }
 
 function stringifyRates(r: RateSettings) {

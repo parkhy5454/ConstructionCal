@@ -302,6 +302,54 @@ export const DEFAULT_BOM: Array<{ g: string; name: string; spec: string; qty: nu
   { g: "2.전등공사", name: "아우트렛박스", spec: "8각54mm", qty: 4 },
 ];
 
+// 가격 출처: 종합물가정보(한국물가정보) 2026년 11월호, 10장 정보통신(전화·통신장치/방송음향기기/네트워크장비).
+// 표준품셈(공수) 자료는 아직 확보되지 않아 이 업종은 재료비만 반영되고 노무비는 0으로 계산됩니다.
+export const DEFAULT_MATERIALS_TELECOM: Array<Omit<Material, "id">> = [
+  { category: "통신단자함", name: "전화단자함(국선단자함)", spec: "40×100P, 매입연강", unit: "Set", price: 243930 },
+  { category: "통신단자함", name: "MDF(주배선반)", spec: "100P보호기 100P당", unit: "개", price: 308880 },
+  { category: "통신단자함", name: "TV분배기함", spec: "300×400mm, 매입연강", unit: "개", price: 62550 },
+  { category: "통신기기", name: "월패드", spec: "일반형 10인치", unit: "대", price: 700000 },
+  { category: "통신기기", name: "비디오폰", spec: "표준형", unit: "대", price: 360000 },
+  { category: "통신기기", name: "인터폰", spec: "공동현관/경비실 연동", unit: "대", price: 70000 },
+  { category: "통신기기", name: "현관카메라", spec: "컬러CCD", unit: "대", price: 60000 },
+  { category: "통신기기", name: "FDF(광단자함)", spec: "4Port", unit: "개", price: 100000 },
+  { category: "통신기기", name: "네트워크스위치(PoE)", spec: "1G SFP 2Port/UTP 8Port", unit: "대", price: 2604800 },
+  { category: "통신배선", name: "LAN케이블", spec: "Cat.5E, 4P", unit: "M", price: 1500 },
+  { category: "통신배선", name: "LAN케이블(고급)", spec: "Cat.6E, 4P", unit: "M", price: 3500 },
+  { category: "통신관", name: "통신용 플렉시블전선관", spec: "22mm", unit: "M", price: 5000 },
+  { category: "통신관", name: "통신용 플렉시블전선관", spec: "28mm", unit: "M", price: 6500 },
+  { category: "방송설비", name: "실링스피커", spec: "10W, 매입형", unit: "개", price: 84000 },
+  { category: "방송설비", name: "월스피커", spec: "10W, 벽부형", unit: "개", price: 101000 },
+  { category: "방송설비", name: "비상방송용 앰프", spec: "360W급, 8채널, 2U", unit: "대", price: 2625000 },
+  { category: "무선통신", name: "업무용 무전기", spec: "UHF, 4.8W", unit: "대", price: 440000 },
+];
+
+// 가격 출처: 종합물가정보(한국물가정보) 2026년 11월호, 11장 소방·안전·화학(소방시설/화재경보기).
+// 표준품셈(공수) 자료는 아직 확보되지 않아 이 업종은 재료비만 반영되고 노무비는 0으로 계산됩니다.
+export const DEFAULT_MATERIALS_FIRE: Array<Omit<Material, "id">> = [
+  { category: "소화기", name: "ABC분말소화기", spec: "3.3kg, 약제충전", unit: "개", price: 25000 },
+  { category: "소화전설비", name: "옥내소화전함", spec: "25A×25M, 드럼형, 강재", unit: "개", price: 380000 },
+  { category: "소화전설비", name: "호스릴옥내소화전함", spec: "저층형, 호스 25M", unit: "개", price: 302500 },
+  { category: "스프링클러설비", name: "습식 알람밸브", spec: "100A, 10K, 그루브형", unit: "개", price: 480000 },
+  { category: "스프링클러설비", name: "프리액션밸브(개방형)", spec: "100A, 1.0MPa", unit: "개", price: 950000 },
+  { category: "스프링클러설비", name: "스프링클러헤드", spec: "72℃, 표준반응형, 플러셔형", unit: "개", price: 9400 },
+  { category: "경보설비", name: "차동식스포트형감지기", spec: "2종, 보통형", unit: "개", price: 5000 },
+  { category: "경보설비", name: "정온식스포트형감지기", spec: "특종, 보통형, 70℃", unit: "개", price: 5000 },
+  { category: "경보설비", name: "광전식연기감지기", spec: "2종", unit: "개", price: 30000 },
+  { category: "경보설비", name: "발신기", spec: "P형 1종", unit: "개", price: 7000 },
+  { category: "경보설비", name: "경종", spec: "90dB", unit: "개", price: 10500 },
+  { category: "경보설비", name: "표시등", spec: "DC24V, 사각형", unit: "개", price: 2500 },
+  { category: "경보설비", name: "수동발신기세트", spec: "P형, 전강판", unit: "Set", price: 155000 },
+  { category: "피난설비", name: "통로유도등", spec: "LED, 소형, 60분용", unit: "개", price: 60000 },
+  { category: "피난설비", name: "비상조명등", spec: "소화전내장형", unit: "개", price: 70000 },
+];
+
+// 업종별 기본 시드 자재. 전기 외 업종은 아직 표준품셈이 없어 자재단가만 제공됩니다.
+export const DEFAULT_MATERIALS_BY_DISCIPLINE: Partial<Record<Discipline, Array<Omit<Material, "id">>>> = {
+  telecom: DEFAULT_MATERIALS_TELECOM,
+  fire: DEFAULT_MATERIALS_FIRE,
+};
+
 export function fmt(n: number): string {
   if (!isFinite(n)) return "0";
   return Math.round(n).toLocaleString("ko-KR");
