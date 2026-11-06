@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ConCal — 전기공사 적산기",
-  description: "자재단가DB × 표준품셈DB 자동 결합 전기공사 적산 프로그램",
+  title: "ConCal — 공사 적산기",
+  description: "전기·통신·소방·기계·토목·건축 — 자재단가DB × 표준품셈DB 자동 결합 공사 적산 프로그램",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
