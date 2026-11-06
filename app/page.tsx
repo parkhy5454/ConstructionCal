@@ -5,7 +5,7 @@ export default async function Home() {
   const user = await getServerUser();
   return (
     <main className="mx-auto max-w-sm px-4 py-20 text-center">
-      <h1 className="text-2xl font-bold mb-2">⚡ ConCal — 공사 적산기</h1>
+      <h1 className="text-2xl font-bold mb-2">🏗️ ConCal — 공사 적산기</h1>
       <p className="text-sm text-gray-500 mb-8">전기·통신·소방·기계·토목·건축 — 자재단가DB × 표준품셈DB 자동 결합</p>
       {user ? (
         <div className="flex flex-col gap-2 items-center">

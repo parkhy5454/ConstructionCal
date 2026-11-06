@@ -37,7 +37,7 @@ export default function AppShell({
       {/* 데스크톱 사이드바 */}
       <nav className="hidden md:flex md:flex-col md:w-56 md:shrink-0 border-r border-[#e4e8e5] bg-white min-h-screen sticky top-0 self-start py-6 px-3">
         <div className="px-2 mb-6 flex items-center gap-2.5">
-          <span className="grid place-items-center w-9 h-9 rounded-[10px] bg-gradient-to-b from-[#1f6f54] to-[#101814] text-white text-base shrink-0">⚡</span>
+          <span className="grid place-items-center w-9 h-9 rounded-[10px] bg-gradient-to-b from-[#1f6f54] to-[#101814] text-white text-base shrink-0">🏗️</span>
           <div>
             <div className="font-extrabold text-[15px] leading-tight">ConCal</div>
             <div className="text-[11px] text-gray-400 leading-tight mt-0.5">{userName}님</div>
@@ -72,7 +72,7 @@ export default function AppShell({
 
       {/* 모바일 상단바 */}
       <header className="md:hidden relative sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-[#e4e8e5] px-4 py-3 flex items-center gap-2 pt-[max(12px,env(safe-area-inset-top,0px))]">
-        <span className="grid place-items-center w-7 h-7 rounded-[8px] bg-gradient-to-b from-[#1f6f54] to-[#101814] text-white text-xs shrink-0">⚡</span>
+        <span className="grid place-items-center w-7 h-7 rounded-[8px] bg-gradient-to-b from-[#1f6f54] to-[#101814] text-white text-xs shrink-0">🏗️</span>
         <div className="font-extrabold text-[15px] flex-1">{current ? `${current.icon} ${current.label}` : "ConCal"}</div>
         <button
           onClick={() => setMenuOpen((v) => !v)}

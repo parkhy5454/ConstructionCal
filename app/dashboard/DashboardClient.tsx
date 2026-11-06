@@ -63,7 +63,7 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
       </div>
 
       <a href="/app/home" className="block text-center mb-4 bg-black text-white rounded-lg py-2 font-semibold">
-        ⚡ 적산기로 이동
+        🏗️ 적산기로 이동
       </a>
 
       {user.mustChangePassword && (
