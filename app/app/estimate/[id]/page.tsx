@@ -211,7 +211,7 @@ export default function EstimateDetailPage() {
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 text-right">{fmt(g.consumable)}</td>
                   </tr>
                   <tr className="text-gray-400 italic">
-                    <td className="py-1.5 pr-2">노무비(내선전공)</td><td className="py-1.5 pr-2 text-right">{g.laborHeadcount.toFixed(2)}</td>
+                    <td className="py-1.5 pr-2">노무비(공수)</td><td className="py-1.5 pr-2 text-right">{g.laborHeadcount.toFixed(2)}인</td>
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 pr-2 text-right">{fmt(g.laborAmt)}</td>
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 text-right">{fmt(g.laborAmt)}</td>
                   </tr>

@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const extraRows: Array<[string, string, number, number, number, number]> = [
       ["배관 부속재", "식", 1, g.accessory, 0, 0],
       ["소모 잡자재", "식", 1, g.consumable, 0, 0],
-      ["노무비 (내선전공)", "인", Number(g.laborHeadcount.toFixed(2)), 0, g.laborAmt, 0],
+      ["노무비 (공수)", "인", Number(g.laborHeadcount.toFixed(2)), 0, g.laborAmt, 0],
       ["공구손료", "식", 1, 0, 0, g.toolLoss],
     ];
     extraRows.forEach(([name, unit, qty, mat, lab, exp]) => {

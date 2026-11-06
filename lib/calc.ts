@@ -132,23 +132,29 @@ export function computeAll(
   pumsemRows: Pumsem[],
   laborRates: LaborRate[],
   rates: RateSettings,
-  bom: BomItem[],
-  mainLaborCode = "L01"
+  bom: BomItem[]
 ): ComputeResult {
   const ild = computeIlwidaega(materials, pumsemRows, laborRates);
-  const ildMap = new Map(ild.map((i) => [i.materialId, i]));
   const matMap = new Map(materials.map((m) => [m.id, m]));
-  const laborMap = new Map(laborRates.map((l) => [l.code, l.rate]));
-  const mainLaborRate = laborMap.get(mainLaborCode) ?? 0;
+  // 자재 하나가 서로 다른 노임코드(직종)의 품셈 행을 여러 개 가질 수 있으므로(예: 배관공+보통인부),
+  // materialId -> 해당 자재의 모든 일위대가 행 배열로 보관해 단가/공수를 합산합니다.
+  const ildByMat = new Map<number, IlwidaegaRow[]>();
+  for (const row of ild) {
+    const arr = ildByMat.get(row.materialId);
+    if (arr) arr.push(row);
+    else ildByMat.set(row.materialId, [row]);
+  }
+  const matPriceOf = (materialId: number) => matMap.get(materialId)?.price ?? 0;
 
   const groups = Array.from(new Set(bom.map((b) => b.groupName)));
   const groupResults: GroupResult[] = groups.map((g) => {
     const rows = bom.filter((b) => b.groupName === g);
     const items = rows.map((b) => {
-      const match = ildMap.get(b.materialId);
       const mat = matMap.get(b.materialId);
-      const matAmt = (match ? match.matPrice : 0) * b.qty;
-      const laborFactor = match ? match.factor : 0;
+      const matRows = ildByMat.get(b.materialId) ?? [];
+      // 품셈 데이터가 없는 자재(예: 설치 품셈이 없는 소화기)도 재료비는 항상 반영됩니다.
+      const matAmt = matPriceOf(b.materialId) * b.qty;
+      const laborFactor = matRows.reduce((s, r) => s + r.factor, 0);
       const neededLabor = laborFactor * b.qty;
       return {
         materialId: b.materialId,
@@ -163,15 +169,21 @@ export function computeAll(
 
     const pipeBase = rows
       .filter((b) => matMap.get(b.materialId)?.category === "전선관")
-      .reduce((s, b) => s + (ildMap.get(b.materialId)?.matPrice ?? 0) * b.qty, 0);
+      .reduce((s, b) => s + matPriceOf(b.materialId) * b.qty, 0);
     const wireBase = rows
       .filter((b) => matMap.get(b.materialId)?.category === "전선")
-      .reduce((s, b) => s + (ildMap.get(b.materialId)?.matPrice ?? 0) * b.qty, 0);
+      .reduce((s, b) => s + matPriceOf(b.materialId) * b.qty, 0);
     const accessory = pipeBase * rates.pipeAccessory;
     const consumable = (pipeBase + wireBase) * rates.consumable;
 
+    // 실제 노무비(원) = 자재별로 매칭된 모든 품셈 행(직종별 공수 × 해당 직종 노임단가)의 합 × 수량.
+    // 자재 하나에 직종이 여러 개 섞여 있어도(예: 배관공+보통인부) 각 직종의 실제 단가가 그대로 반영됩니다.
+    const laborAmt = rows.reduce((s, b) => {
+      const matRows = ildByMat.get(b.materialId) ?? [];
+      const perUnitLabor = matRows.reduce((s2, r) => s2 + r.laborPrice, 0);
+      return s + perUnitLabor * b.qty;
+    }, 0);
     const laborHeadcount = items.reduce((s, i) => s + i.neededLabor, 0);
-    const laborAmt = laborHeadcount * mainLaborRate;
     const toolLoss = laborAmt * rates.toolLoss;
 
     const matTotal = items.reduce((s, i) => s + i.matAmt, 0) + accessory + consumable;
