@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { getDb } from "./db";
-import { materials, laborRates, pumsem, rateSettings, projects, bomItems } from "./schema";
+import { materials, laborRates, pumsem, rateSettings, projects, bomItems, dxfMappings } from "./schema";
 import {
   DEFAULT_MATERIALS,
   DEFAULT_LABOR_RATES,
@@ -118,4 +118,55 @@ export async function getProjectOwned(userId: number, projectId: number) {
   const db = getDb();
   const rows = await db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId))).limit(1);
   return rows[0] ?? null;
+}
+
+// ---------- DXF 도면 매핑 (레이어/블록명 ↔ 자재) ----------
+
+export type DxfMapping = {
+  id: number;
+  matchType: "layer" | "block";
+  matchName: string;
+  materialId: number;
+  groupName: string;
+  unitScale: number;
+};
+
+export async function getDxfMappings(userId: number): Promise<DxfMapping[]> {
+  const db = getDb();
+  const rows = await db.select().from(dxfMappings).where(eq(dxfMappings.userId, userId));
+  return rows.map((r) => ({
+    id: r.id,
+    matchType: r.matchType as "layer" | "block",
+    matchName: r.matchName,
+    materialId: r.materialId,
+    groupName: r.groupName,
+    unitScale: num(r.unitScale),
+  }));
+}
+
+export async function upsertDxfMapping(
+  userId: number,
+  m: { matchType: "layer" | "block"; matchName: string; materialId: number; groupName: string; unitScale: number }
+) {
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(dxfMappings)
+    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.matchType, m.matchType), eq(dxfMappings.matchName, m.matchName)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(dxfMappings)
+      .set({ materialId: m.materialId, groupName: m.groupName, unitScale: String(m.unitScale) })
+      .where(eq(dxfMappings.id, existing[0].id));
+  } else {
+    await db.insert(dxfMappings).values({
+      userId,
+      matchType: m.matchType,
+      matchName: m.matchName,
+      materialId: m.materialId,
+      groupName: m.groupName,
+      unitScale: String(m.unitScale),
+    });
+  }
 }

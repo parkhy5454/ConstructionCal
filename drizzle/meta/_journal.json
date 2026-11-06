@@ -15,6 +15,13 @@
       "when": 1793924193687,
       "tag": "0001_short_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793929459412,
+      "tag": "0002_numerous_onslaught",
+      "breakpoints": true
     }
   ]
 }

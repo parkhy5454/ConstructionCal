@@ -107,3 +107,16 @@ export const bomItems = pgTable("bom_items", {
   qty: numeric("qty", { precision: 14, scale: 2 }).notNull().default("0"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
+
+// DXF 도면의 레이어명/블록명 ↔ 자재 매핑 (사용자가 한 번 지정하면 다음 업로드부터 자동 제안)
+export const dxfMappings = pgTable("dxf_mappings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  matchType: varchar("match_type", { length: 10 }).notNull(), // "layer" | "block"
+  matchName: varchar("match_name", { length: 200 }).notNull(), // 레이어명 또는 블록명
+  materialId: integer("material_id").notNull(),
+  groupName: varchar("group_name", { length: 60 }).notNull().default(""), // 자동 배정할 공종
+  unitScale: numeric("unit_scale", { precision: 14, scale: 6 }).notNull().default("1"), // 도면단위→자재단위 환산 배수 (길이: mm도면이면 0.001 등, 개수: 1)
+}, (t) => ({
+  userMatch: unique().on(t.userId, t.matchType, t.matchName),
+}));

@@ -85,6 +85,12 @@ export default function EstimateDetailPage() {
           <h1 className="text-lg font-bold mt-1">{project.name}</h1>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href={`/app/estimate/${projectId}/dxf`}
+            className="text-xs bg-[#1f6f54] text-white rounded-lg px-3 py-1.5 font-semibold"
+          >
+            📐 도면으로 물량 가져오기
+          </Link>
           <a
             href={`/api/projects/${projectId}/export`}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
