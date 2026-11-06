@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (data.user?.mustChangePassword) {
         router.push("/dashboard?forceChangePassword=1");
       } else {
-        router.push("/dashboard");
+        router.push("/app/home");
       }
     } catch {
       setError("네트워크 오류가 발생했습니다.");
