@@ -84,7 +84,15 @@ export default function EstimateDetailPage() {
           <Link href="/app/estimate" className="text-xs text-gray-400 underline">← 견적서 목록</Link>
           <h1 className="text-lg font-bold mt-1">{project.name}</h1>
         </div>
-        <button onClick={removeProject} className="text-xs text-red-600 underline shrink-0">삭제</button>
+        <div className="flex items-center gap-3 shrink-0">
+          <a
+            href={`/api/projects/${projectId}/export`}
+            className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
+          >
+            ⬇ 엑셀 다운로드
+          </a>
+          <button onClick={removeProject} className="text-xs text-red-600 underline">삭제</button>
+        </div>
       </div>
 
       {/* BOM 입력 */}
