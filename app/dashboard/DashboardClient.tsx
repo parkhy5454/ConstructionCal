@@ -62,6 +62,10 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
         <button onClick={logout} className="text-sm underline text-gray-500">로그아웃</button>
       </div>
 
+      <a href="/app/home" className="block text-center mb-4 bg-black text-white rounded-lg py-2 font-semibold">
+        ⚡ 적산기로 이동
+      </a>
+
       {user.mustChangePassword && (
         <div className="bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded-lg px-3 py-2 mb-4">
           관리자가 비밀번호를 재설정했습니다. 아래에서 새 비밀번호로 변경해주세요.
