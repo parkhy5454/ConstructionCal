@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -21,6 +22,7 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -69,9 +71,34 @@ export default function AppShell({
       </nav>
 
       {/* 모바일 상단바 */}
-      <header className="md:hidden sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#e4e8e5] px-4 py-3 flex items-center gap-2 pt-[max(12px,env(safe-area-inset-top,0px))]">
+      <header className="md:hidden relative sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-[#e4e8e5] px-4 py-3 flex items-center gap-2 pt-[max(12px,env(safe-area-inset-top,0px))]">
         <span className="grid place-items-center w-7 h-7 rounded-[8px] bg-gradient-to-b from-[#1f6f54] to-[#101814] text-white text-xs shrink-0">⚡</span>
-        <div className="font-extrabold text-[15px]">{current ? `${current.icon} ${current.label}` : "ConCal"}</div>
+        <div className="font-extrabold text-[15px] flex-1">{current ? `${current.icon} ${current.label}` : "ConCal"}</div>
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="메뉴"
+          className="grid place-items-center w-8 h-8 rounded-full bg-gray-100 text-sm font-bold text-gray-600 shrink-0"
+        >
+          {userName.slice(0, 1)}
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+            <div className="absolute right-4 top-[calc(100%+6px)] z-40 w-44 bg-white border border-[#e4e8e5] rounded-xl shadow-lg py-1.5 overflow-hidden">
+              <div className="px-3 py-2 text-xs text-gray-400 border-b border-[#e4e8e5]">{userName}님</div>
+              <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="block px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50">내 정보</Link>
+              {isAdmin && (
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="block px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50">관리자</Link>
+              )}
+              <button
+                onClick={() => { setMenuOpen(false); logout(); }}
+                className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-gray-50"
+              >
+                로그아웃
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
       {/* 본문 */}
