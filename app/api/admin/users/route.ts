@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
 import { listSecurity } from "@/lib/security";
+import { listSubscriptions, computeStatus, trialDays } from "@/lib/subscription";
 
 export const runtime = "nodejs";
 
@@ -29,10 +30,21 @@ export async function GET(req: NextRequest) {
 
   // 2FA 사용 여부 / 이메일 인증 여부 (emailVerified null = 인증 대상 아님: 기존 가입자 등)
   const sec = await listSecurity();
+  const subs = await listSubscriptions();
+  const trialOn = trialDays() > 0;
   const enriched = rows.map((u) => {
     const s = sec.get(u.id);
-    return { ...u, totpEnabled: s?.totpEnabled === 1, emailVerified: s ? !!s.emailVerifiedAt : null };
+    const info = computeStatus({ enabled: trialOn, role: u.role, row: subs.get(u.id) ?? null });
+    return {
+      ...u,
+      totpEnabled: s?.totpEnabled === 1,
+      emailVerified: s ? !!s.emailVerifiedAt : null,
+      subStatus: info.status, // off | admin | paid | trial | expired (체험 시작 전 신규 계정은 expired로 보일 수 있어 아래에서 보정)
+      subUntil: info.until ? info.until.toISOString() : null,
+      subDaysLeft: info.daysLeft,
+      subStarted: subs.has(u.id),
+    };
   });
 
-  return NextResponse.json({ users: enriched });
+  return NextResponse.json({ users: enriched, trialDays: trialDays() });
 }

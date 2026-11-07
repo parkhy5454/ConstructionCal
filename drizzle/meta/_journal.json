@@ -43,6 +43,13 @@
       "when": 1794024676081,
       "tag": "0005_massive_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794026529155,
+      "tag": "0006_smart_hairball",
+      "breakpoints": true
     }
   ]
 }

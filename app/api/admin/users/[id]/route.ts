@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { users, adminActions } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
 import { hashPassword, validatePasswordPolicy, validateEmail } from "@/lib/auth";
+import { extendPaid } from "@/lib/subscription";
+import { isMissingTable } from "@/lib/security";
 import { disableTotp, markEmailVerified, SecurityTablesMissingError } from "@/lib/security";
 
 export const runtime = "nodejs";
@@ -83,7 +85,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   if (body.verifyEmail === true) secActions.push("verify_email");
 
-  if (Object.keys(updates).length <= 1 && secActions.length === 0) {
+  // 구독 기간 수동 연장(결제 연동 전 운영용). 양수=연장, 음수=단축. 현재 만료일(없거나 지났으면 지금) 기준.
+  let extendDays: number | null = null;
+  if (body.extendDays !== undefined) {
+    const n = Number(body.extendDays);
+    if (!Number.isInteger(n) || n === 0 || Math.abs(n) > 3650) {
+      return NextResponse.json({ error: "연장 일수는 0이 아닌 정수(최대 ±3650)여야 합니다." }, { status: 400 });
+    }
+    extendDays = n;
+  }
+
+  if (Object.keys(updates).length <= 1 && secActions.length === 0 && extendDays === null) {
     return NextResponse.json({ error: "변경할 항목이 없습니다." }, { status: 400 });
   }
 
@@ -98,6 +110,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "보안 기능 테이블이 아직 없습니다. 운영 DB에 npm run db:push를 먼저 실행하세요." }, { status: 503 });
     }
     throw e;
+  }
+
+  if (extendDays !== null) {
+    try {
+      const until = await extendPaid(target.id, extendDays);
+      logs.push({ action: "extend_subscription", detail: `구독 ${extendDays > 0 ? "+" : ""}${extendDays}일 → ${until.toISOString().slice(0, 10)}까지` });
+    } catch (e) {
+      if (isMissingTable(e)) {
+        return NextResponse.json({ error: "구독 테이블이 아직 없습니다. 운영 DB에 npm run db:push를 먼저 실행하세요." }, { status: 503 });
+      }
+      throw e;
+    }
   }
 
   if (Object.keys(updates).length > 1) {

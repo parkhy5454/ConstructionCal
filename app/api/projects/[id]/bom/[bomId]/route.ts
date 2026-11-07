@@ -1,3 +1,4 @@
+import { subscriptionBlock } from "@/lib/subscription";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/currentUser";
@@ -10,6 +11,8 @@ export const runtime = "nodejs";
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; bomId: string } }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  const blocked = await subscriptionBlock(user);
+  if (blocked) return blocked;
   const projectId = Number(params.id);
   const bomId = Number(params.bomId);
   if (!Number.isInteger(projectId) || !Number.isInteger(bomId)) return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
@@ -39,6 +42,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(req: NextRequest, { params }: { params: { id: string; bomId: string } }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  const blocked = await subscriptionBlock(user);
+  if (blocked) return blocked;
   const projectId = Number(params.id);
   const bomId = Number(params.bomId);
   if (!Number.isInteger(projectId) || !Number.isInteger(bomId)) return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });

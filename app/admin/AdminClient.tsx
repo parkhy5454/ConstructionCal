@@ -14,6 +14,10 @@ type AdminUser = {
   createdAt: string;
   totpEnabled: boolean;
   emailVerified: boolean | null; // null = 이메일 인증 대상 아님
+  subStatus: "off" | "admin" | "paid" | "trial" | "expired";
+  subUntil: string | null;
+  subDaysLeft: number | null;
+  subStarted: boolean; // 체험/구독 행이 있는가(첫 이용 전이면 false)
 };
 
 const statusLabel: Record<AdminUser["status"], string> = {
@@ -32,12 +36,13 @@ export default function AdminClient({ selfId }: { selfId: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [trialOn, setTrialOn] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/users");
     const data = await res.json();
-    if (res.ok) setUsers(data.users);
+    if (res.ok) { setUsers(data.users); setTrialOn((data.trialDays ?? 0) > 0); }
     else setError(data.error ?? "불러오기 실패");
     setLoading(false);
   }, []);
@@ -65,6 +70,23 @@ export default function AdminClient({ selfId }: { selfId: number }) {
     patchUser(u.id, { disable2fa: true });
   }
 
+  function extend(u: AdminUser) {
+    const v = prompt(`${u.name}님의 구독을 며칠 연장할까요? (예: 30, 365 / 줄이려면 음수)`, "30");
+    if (!v) return;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n === 0) { setError("0이 아닌 정수를 입력하세요."); return; }
+    patchUser(u.id, { extendDays: n });
+  }
+
+  function subLabel(u: AdminUser) {
+    if (!trialOn || u.subStatus === "off") return null;
+    if (u.subStatus === "admin") return { text: "관리자", cls: "bg-gray-100 text-gray-500" };
+    if (u.subStatus === "paid") return { text: `구독 ${u.subDaysLeft}일 남음`, cls: "bg-green-100 text-green-800" };
+    if (u.subStatus === "trial") return { text: `체험 ${u.subDaysLeft}일 남음`, cls: "bg-blue-100 text-blue-800" };
+    if (!u.subStarted) return { text: "체험 시작 전", cls: "bg-gray-100 text-gray-500" };
+    return { text: "만료(읽기 전용)", cls: "bg-red-100 text-red-800" };
+  }
+
   function resetPassword(id: number) {
     const pw = prompt("새 비밀번호를 입력하세요 (8자 이상, 영문+숫자). 사용자는 다음 로그인 시 반드시 변경해야 합니다.");
     if (!pw) return;
@@ -89,6 +111,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                 <th className="text-left px-3 py-2">권한</th>
                 <th className="text-left px-3 py-2">상태</th>
                 <th className="text-left px-3 py-2">보안</th>
+                <th className="text-left px-3 py-2">구독</th>
                 <th className="text-left px-3 py-2">추천코드</th>
                 <th className="text-left px-3 py-2">작업</th>
               </tr>
@@ -134,6 +157,12 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                       )}
                     </div>
                   </td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">
+                    {(() => {
+                      const l = subLabel(u);
+                      return l ? <span className={`px-2 py-0.5 rounded-full ${l.cls}`}>{l.text}</span> : <span className="text-gray-300">-</span>;
+                    })()}
+                  </td>
                   <td className="px-3 py-2 font-mono text-xs">{u.referralCode}</td>
                   <td className="px-3 py-2 space-x-2 whitespace-nowrap">
                     {u.id !== selfId && u.status !== "approved" && (
@@ -145,6 +174,9 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                     <button disabled={busyId === u.id} onClick={() => resetPassword(u.id)} className="text-blue-700 underline text-xs">비밀번호 재설정</button>
                     {u.id !== selfId && u.totpEnabled && (
                       <button disabled={busyId === u.id} onClick={() => disable2fa(u)} className="text-purple-700 underline text-xs">2FA 해제</button>
+                    )}
+                    {trialOn && u.role !== "admin" && (
+                      <button disabled={busyId === u.id} onClick={() => extend(u)} className="text-orange-700 underline text-xs">구독 연장</button>
                     )}
                     {u.emailVerified === false && (
                       <button disabled={busyId === u.id} onClick={() => patchUser(u.id, { verifyEmail: true })} className="text-teal-700 underline text-xs">이메일 인증 처리</button>

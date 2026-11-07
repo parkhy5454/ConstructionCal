@@ -1,3 +1,4 @@
+import { subscriptionBlock } from "@/lib/subscription";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  const blocked = await subscriptionBlock(user);
+  if (blocked) return blocked;
   const body = await req.json().catch(() => null);
   const name = String(body?.name ?? "").trim();
   const discipline = parseDiscipline(body?.discipline);

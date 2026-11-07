@@ -60,6 +60,14 @@ export const activeSessions = pgTable("active_sessions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 구독 상태: 무료 체험 종료일과 유료 이용 만료일. 결제 연동 전에는 관리자가 paid_until을 직접 연장합니다.
+export const subscriptions = pgTable("subscriptions", {
+  userId: integer("user_id").primaryKey(),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  paidUntil: timestamp("paid_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 1회용 토큰(이메일 인증 링크). 원문은 메일로만 나가고 DB에는 SHA-256 해시만 저장합니다.
 export const authTokens = pgTable("auth_tokens", {
   id: serial("id").primaryKey(),
