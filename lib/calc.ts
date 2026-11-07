@@ -362,6 +362,44 @@ export const DEFAULT_MATERIALS_BY_DISCIPLINE: Partial<Record<Discipline, Array<O
   fire: DEFAULT_MATERIALS_FIRE,
 };
 
+// 업종 처음 접근 시 함께 만들어 주는 "예시 견적서" 물량. 신규 사용자가 빈 화면이 아니라
+// 재료비·노무비·원가계산서까지 채워진 결과를 바로 볼 수 있게 합니다. 수량은 설명용 가상 값입니다.
+// 품명/규격은 위 DEFAULT_MATERIALS_*와 정확히 같아야 매칭됩니다(scratch 검산 스크립트로 확인).
+export const DEFAULT_BOM_BY_DISCIPLINE: Partial<Record<Discipline, Array<{ g: string; name: string; spec: string; qty: number }>>> = {
+  telecom: [
+    { g: "1.세대통신공사", name: "통신용 플렉시블전선관", spec: "22mm", qty: 120 },
+    { g: "1.세대통신공사", name: "통신용 플렉시블전선관", spec: "28mm", qty: 30 },
+    { g: "1.세대통신공사", name: "LAN케이블", spec: "Cat.5E, 4P", qty: 400 },
+    { g: "1.세대통신공사", name: "전화단자함(국선단자함)", spec: "40×100P, 매입연강", qty: 1 },
+    { g: "1.세대통신공사", name: "TV분배기함", spec: "300×400mm, 매입연강", qty: 1 },
+    { g: "1.세대통신공사", name: "월패드", spec: "일반형 10인치", qty: 1 },
+    { g: "1.세대통신공사", name: "현관카메라", spec: "컬러CCD", qty: 1 },
+    { g: "1.세대통신공사", name: "인터폰", spec: "공동현관/경비실 연동", qty: 1 },
+    { g: "2.공용부통신공사", name: "통신용 플렉시블전선관", spec: "28mm", qty: 80 },
+    { g: "2.공용부통신공사", name: "LAN케이블(고급)", spec: "Cat.6E, 4P", qty: 300 },
+    { g: "2.공용부통신공사", name: "MDF(주배선반)", spec: "100P보호기 100P당", qty: 1 },
+    { g: "2.공용부통신공사", name: "FDF(광단자함)", spec: "4Port", qty: 2 },
+    { g: "2.공용부통신공사", name: "네트워크스위치(PoE)", spec: "1G SFP 2Port/UTP 8Port", qty: 2 },
+    { g: "3.방송설비공사", name: "실링스피커", spec: "10W, 매입형", qty: 24 },
+    { g: "3.방송설비공사", name: "월스피커", spec: "10W, 벽부형", qty: 6 },
+    { g: "3.방송설비공사", name: "비상방송용 앰프", spec: "360W급, 8채널, 2U", qty: 1 },
+  ],
+  fire: [
+    // ABC분말소화기는 표준품셈에 설치 공수가 없어 "재료비만 반영" 안내가 표시되는 대표 품목입니다.
+    { g: "1.소화설비", name: "ABC분말소화기", spec: "3.3kg, 약제충전", qty: 8 },
+    { g: "1.소화설비", name: "옥내소화전함", spec: "25A×25M, 드럼형, 강재", qty: 4 },
+    { g: "1.소화설비", name: "호스릴옥내소화전함", spec: "저층형, 호스 25M", qty: 2 },
+    { g: "1.소화설비", name: "습식 알람밸브", spec: "100A, 10K, 그루브형", qty: 1 },
+    { g: "1.소화설비", name: "스프링클러헤드", spec: "72℃, 표준반응형, 플러셔형", qty: 120 },
+    { g: "2.경보설비", name: "차동식스포트형감지기", spec: "2종, 보통형", qty: 40 },
+    { g: "2.경보설비", name: "정온식스포트형감지기", spec: "특종, 보통형, 70℃", qty: 6 },
+    { g: "2.경보설비", name: "광전식연기감지기", spec: "2종", qty: 12 },
+    { g: "2.경보설비", name: "수동발신기세트", spec: "P형, 전강판", qty: 6 },
+    { g: "3.피난설비", name: "통로유도등", spec: "LED, 소형, 60분용", qty: 30 },
+    { g: "3.피난설비", name: "비상조명등", spec: "소화전내장형", qty: 12 },
+  ],
+};
+
 // ---------- 소방(fire) 표준품셈 — 2026년 소방공사 표준품셈(한국소방시설협회, 정부승인) ----------
 // 노임단가 출처: 2026.1.1 적용 시중노임단가(내선전공/배관공/보통인부, 공사부문 공표).
 export const DEFAULT_LABOR_RATES_FIRE: LaborRate[] = [

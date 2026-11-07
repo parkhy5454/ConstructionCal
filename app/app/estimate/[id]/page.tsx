@@ -76,6 +76,8 @@ export default function EstimateDetailPage() {
 
   const { project, materials, bom, result } = data;
   const matById = new Map(materials.map((m) => [m.id, m]));
+  // 품셈(공수)이 없어 노무비가 0으로 계산되는 품목 — 사용자가 "누락"과 "의도된 0"을 구분할 수 있도록 안내합니다.
+  const noLaborItems = result.groupResults.flatMap((g) => g.items).filter((i) => i.neededLabor === 0 && i.qty > 0);
 
   return (
     <div className="space-y-5">
@@ -180,6 +182,13 @@ export default function EstimateDetailPage() {
       {/* 내역서 */}
       <section className="bg-white border rounded-xl p-4">
         <h2 className="text-sm font-bold mb-3">내역서 <span className="text-[10px] bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 ml-1">자동산출</span></h2>
+        {noLaborItems.length > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+            {noLaborItems.length}개 품목은 표준품셈(공수)이 등록되어 있지 않아 <b>재료비만 반영</b>되고 노무비는 0원으로 계산됩니다
+            ({noLaborItems.slice(0, 3).map((i) => i.name).join(", ")}{noLaborItems.length > 3 ? " 등" : ""}).
+            설치 노무가 필요한 품목이면 &lsquo;표준품셈&rsquo; 탭에서 해당 자재의 공수를 추가하면 자동으로 반영됩니다.
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -198,7 +207,12 @@ export default function EstimateDetailPage() {
                   <tr className="bg-gray-50"><td colSpan={6} className="py-1.5 px-2 font-bold">{g.g}</td></tr>
                   {g.items.map((it, idx) => (
                     <tr key={idx} className="border-t text-gray-600">
-                      <td className="py-1.5 pr-2">{it.name} <span className="text-gray-400">{it.spec}</span></td>
+                      <td className="py-1.5 pr-2">
+                        {it.name} <span className="text-gray-400">{it.spec}</span>
+                        {it.neededLabor === 0 && (
+                          <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 rounded-full px-1.5 py-0.5 whitespace-nowrap">품셈 없음 · 재료비만</span>
+                        )}
+                      </td>
                       <td className="py-1.5 pr-2 text-right">{it.qty}</td>
                       <td className="py-1.5 pr-2 text-right">{fmt(it.matAmt)}</td>
                       <td className="py-1.5 pr-2 text-right">0</td>

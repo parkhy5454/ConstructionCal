@@ -88,7 +88,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     gRow.getCell(1).fill = TOTAL_FILL;
 
     g.items.forEach((it) => {
-      const r = sheet.addRow({ name: `${it.name} ${it.spec}`, unit: "", qty: it.qty, mat: it.matAmt, labor: 0, exp: 0, sum: it.matAmt });
+      // 표준품셈(공수)이 없는 품목은 노무비 0이 "누락"이 아니라 "재료비만 반영"임을 엑셀에도 표시
+      const noLaborNote = it.neededLabor === 0 && it.qty > 0 ? " [품셈 없음-재료비만]" : "";
+      const r = sheet.addRow({ name: `${it.name} ${it.spec}${noLaborNote}`, unit: "", qty: it.qty, mat: it.matAmt, labor: 0, exp: 0, sum: it.matAmt });
       ["mat", "labor", "exp", "sum"].forEach((k) => (r.getCell(k).numFmt = WON));
       r.eachCell((c) => (c.border = BORDER));
     });
