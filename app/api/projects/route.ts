@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   const name = String(body?.name ?? "").trim();
   const discipline = parseDiscipline(body?.discipline);
   if (!name) return NextResponse.json({ error: "견적서 이름을 입력하세요." }, { status: 400 });
+  if (name.length > 120) return NextResponse.json({ error: "견적서 이름은 120자 이하로 입력하세요." }, { status: 400 });
 
   await ensureSeeded(user.id, discipline);
   const db = getDb();

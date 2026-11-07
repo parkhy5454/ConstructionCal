@@ -39,6 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : undefined;
   if (name !== undefined && !name) return NextResponse.json({ error: "견적서 이름을 입력하세요." }, { status: 400 });
+  if (name !== undefined && name.length > 120) return NextResponse.json({ error: "견적서 이름은 120자 이하로 입력하세요." }, { status: 400 });
 
   const db = getDb();
   const result = await db
