@@ -1,3 +1,4 @@
+import { setDisciplineList, parseDisciplineList } from "@/lib/disciplineAccess";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -96,7 +97,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     extendDays = n;
   }
 
-  if (Object.keys(updates).length <= 1 && secActions.length === 0 && extendDays === null) {
+  // 공종별 요금제: 유료 구독자가 쓸 수 있는 공종. null 또는 빈 입력 = 전체 공종.
+  let disciplineSet: { list: ReturnType<typeof parseDisciplineList> | null } | null = null;
+  if (body.disciplines !== undefined) {
+    if (body.disciplines === null) disciplineSet = { list: null };
+    else if (Array.isArray(body.disciplines)) {
+      const list = parseDisciplineList(body.disciplines.map(String).join(","));
+      if (list.length === 0) return NextResponse.json({ error: "공종을 1개 이상 선택하거나, 전체로 되돌리려면 비워서 보내세요." }, { status: 400 });
+      disciplineSet = { list };
+    } else return NextResponse.json({ error: "공종 형식이 올바르지 않습니다." }, { status: 400 });
+  }
+
+  if (Object.keys(updates).length <= 1 && secActions.length === 0 && extendDays === null && disciplineSet === null) {
     return NextResponse.json({ error: "변경할 항목이 없습니다." }, { status: 400 });
   }
 
@@ -121,6 +133,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (isMissingTable(e)) {
         return NextResponse.json({ error: "구독 테이블이 아직 없습니다. 운영 DB에 npm run db:push를 먼저 실행하세요." }, { status: 503 });
       }
+      throw e;
+    }
+  }
+
+  if (disciplineSet) {
+    try {
+      await setDisciplineList(target.id, disciplineSet.list);
+      logs.push({ action: "set_disciplines", detail: disciplineSet.list ? `사용 공종: ${disciplineSet.list.join(",")}` : "사용 공종: 전체" });
+    } catch (e) {
+      if (isMissingTable(e)) return NextResponse.json({ error: "공종 요금제 테이블이 아직 없습니다. 운영 DB에 npm run db:push를 먼저 실행하세요." }, { status: 503 });
       throw e;
     }
   }

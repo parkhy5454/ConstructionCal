@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/currentUser";
 import { listSecurity } from "@/lib/security";
 import { listSubscriptions, computeStatus, trialDays } from "@/lib/subscription";
 import { loginStats } from "@/lib/loginEvents";
+import { disciplinePlanOn, getDisciplineMap } from "@/lib/disciplineAccess";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest) {
   const sec = await listSecurity();
   const subs = await listSubscriptions();
   const logins = await loginStats();
+  const dmap = await getDisciplineMap();
   const trialOn = trialDays() > 0;
   const enriched = rows.map((u) => {
     const s = sec.get(u.id);
@@ -45,11 +47,12 @@ export async function GET(req: NextRequest) {
       subUntil: info.until ? info.until.toISOString() : null,
       subDaysLeft: info.daysLeft,
       subStarted: subs.has(u.id),
+      disciplines: dmap.get(u.id) ?? null,
       lastLoginAt: logins.get(u.id)?.lastAt ?? null,
       ips7: logins.get(u.id)?.ips7 ?? 0,
       ips30: logins.get(u.id)?.ips30 ?? 0,
     };
   });
 
-  return NextResponse.json({ users: enriched, trialDays: trialDays() });
+  return NextResponse.json({ users: enriched, trialDays: trialDays(), disciplinePlan: disciplinePlanOn() });
 }

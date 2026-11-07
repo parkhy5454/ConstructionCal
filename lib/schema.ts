@@ -149,6 +149,13 @@ export const subscriptions = pgTable("subscriptions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 공종별 요금제: 유료 구독자가 쓸 수 있는 공종 목록(쉼표 구분). 행이 없으면 전체 공종(기존 사용자 보호).
+export const userDisciplines = pgTable("user_disciplines", {
+  userId: integer("user_id").primaryKey(),
+  disciplines: text("disciplines").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 1회용 토큰(이메일 인증 링크). 원문은 메일로만 나가고 DB에는 SHA-256 해시만 저장합니다.
 export const authTokens = pgTable("auth_tokens", {
   id: serial("id").primaryKey(),

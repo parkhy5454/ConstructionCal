@@ -64,6 +64,13 @@
       "when": 1794029223807,
       "tag": "0008_lumpy_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794034460512,
+      "tag": "0009_clammy_captain_cross",
+      "breakpoints": true
     }
   ]
 }

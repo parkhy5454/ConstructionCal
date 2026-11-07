@@ -15,6 +15,7 @@ const STATUS_COLOR: Record<string, string> = { draft: "bg-gray-100 text-gray-500
 export default function EstimateListPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allowed, setAllowed] = useState<Discipline[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [discipline, setDiscipline] = useState<Discipline>("electrical");
@@ -32,6 +33,8 @@ export default function EstimateListPage() {
     const res = await fetch("/api/projects");
     const data = await res.json();
     setProjects(data.projects ?? []);
+    setAllowed(data.allowedDisciplines ?? null);
+    if (data.allowedDisciplines && data.allowedDisciplines.length > 0) setDiscipline((cur) => (data.allowedDisciplines.includes(cur) ? cur : data.allowedDisciplines[0]));
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -102,7 +105,7 @@ export default function EstimateListPage() {
 
       <form onSubmit={createProject} className="bg-white border rounded-xl p-3 space-y-2">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {DISCIPLINES.map((d) => (
+          {DISCIPLINES.filter((d) => !allowed || allowed.includes(d)).map((d) => (
             <button
               key={d}
               type="button"

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { DISCIPLINES, DISCIPLINE_LABELS } from "@/lib/calc";
 
 type AdminUser = {
   id: number;
@@ -18,6 +19,7 @@ type AdminUser = {
   subUntil: string | null;
   subDaysLeft: number | null;
   subStarted: boolean; // 체험/구독 행이 있는가(첫 이용 전이면 false)
+  disciplines: string[] | null;
   lastLoginAt: string | null;
   ips7: number;
   ips30: number;
@@ -44,6 +46,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [trialOn, setTrialOn] = useState(false);
+  const [planOn, setPlanOn] = useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -51,7 +54,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
     setLoading(true);
     const res = await fetch("/api/admin/users");
     const data = await res.json();
-    if (res.ok) { setUsers(data.users); setTrialOn((data.trialDays ?? 0) > 0); }
+    if (res.ok) { setUsers(data.users); setTrialOn((data.trialDays ?? 0) > 0); setPlanOn(!!data.disciplinePlan); }
     else setError(data.error ?? "불러오기 실패");
     setLoading(false);
     const ov = await fetch("/api/admin/overview");
@@ -97,6 +100,17 @@ export default function AdminClient({ selfId }: { selfId: number }) {
     if (u.subStatus === "trial") return { text: `체험 ${u.subDaysLeft}일 남음`, cls: "bg-blue-100 text-blue-800" };
     if (!u.subStarted) return { text: "체험 시작 전", cls: "bg-gray-100 text-gray-500" };
     return { text: "만료(읽기 전용)", cls: "bg-red-100 text-red-800" };
+  }
+
+  function setDisciplines(u: AdminUser) {
+    const cur = u.disciplines ? u.disciplines.map((d) => DISCIPLINE_LABELS[d as keyof typeof DISCIPLINE_LABELS]).join(",") : "";
+    const v = prompt(`${u.name}님이 유료 구독으로 쓸 수 있는 업종을 쉼표로 입력하세요.\n(${DISCIPLINES.map((d) => DISCIPLINE_LABELS[d]).join(", ")})\n비우면 전체 업종입니다.`, cur);
+    if (v === null) return;
+    const names = v.split(",").map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) { patchUser(u.id, { disciplines: null }); return; }
+    const codes = names.map((n) => DISCIPLINES.find((d) => DISCIPLINE_LABELS[d] === n));
+    if (codes.some((c) => !c)) { setError("업종 이름이 올바르지 않습니다. 목록에 있는 이름 그대로 입력하세요."); return; }
+    patchUser(u.id, { disciplines: codes });
   }
 
   function resetPassword(id: number) {
@@ -202,6 +216,11 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                     )}
                     {trialOn && u.role !== "admin" && (
                       <button disabled={busyId === u.id} onClick={() => extend(u)} className="text-orange-700 underline text-xs">구독 연장</button>
+                    )}
+                    {planOn && u.role !== "admin" && (
+                      <button disabled={busyId === u.id} onClick={() => setDisciplines(u)} className="text-indigo-700 underline text-xs">
+                        업종{u.disciplines ? `(${u.disciplines.length})` : "(전체)"}
+                      </button>
                     )}
                     {u.emailVerified === false && (
                       <button disabled={busyId === u.id} onClick={() => patchUser(u.id, { verifyEmail: true })} className="text-teal-700 underline text-xs">이메일 인증 처리</button>

@@ -8,6 +8,7 @@ import { computeTotals } from "@/lib/projectCompute";
 import { getMetaMap } from "@/lib/projectMeta";
 import { listClients } from "@/lib/clients";
 import { DISCIPLINES, type Discipline } from "@/lib/calc";
+import { allowedDisciplines, disciplineBlock } from "@/lib/disciplineAccess";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest) {
   const recent = rows.slice(-300);
   const [totals, metaMap, clientList] = await Promise.all([computeTotals(user.id, recent), getMetaMap(recent.map((r) => r.id)), listClients(user.id)]);
   const clientName = new Map(clientList.map((c) => [c.id, c.name]));
+  const allowed = await allowedDisciplines(user);
   return NextResponse.json({
+    allowedDisciplines: allowed,
     projects: rows.map((r) => {
       const t = totals.get(r.id);
       const m = metaMap.get(r.id);
@@ -44,6 +47,8 @@ export async function POST(req: NextRequest) {
   if (!name) return NextResponse.json({ error: "견적서 이름을 입력하세요." }, { status: 400 });
   if (name.length > 120) return NextResponse.json({ error: "견적서 이름은 120자 이하로 입력하세요." }, { status: 400 });
 
+  const dBlocked = await disciplineBlock(user, discipline);
+  if (dBlocked) return dBlocked;
   await ensureSeeded(user.id, discipline);
   const db = getDb();
   const [row] = await db.insert(projects).values({ userId: user.id, discipline, name }).returning();

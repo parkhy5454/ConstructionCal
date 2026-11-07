@@ -5,7 +5,7 @@ import { eq, inArray, and } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   users, materials, laborRates, pumsem, rateSettings, dxfMappings, projects, bomItems, projectMeta, projectVersions,
-  shareLinks, clients, userSecurity, authTokens, activeSessions, subscriptions, noticeLog, loginEvents, inquiries,
+  shareLinks, clients, userDisciplines, userSecurity, authTokens, activeSessions, subscriptions, noticeLog, loginEvents, inquiries,
 } from "./schema";
 import { isMissingTable, isMissingColumn } from "./security";
 
@@ -52,6 +52,7 @@ export async function deleteUserAccount(userId: number, db: Db = getDb()): Promi
   await tolerant(() => db.delete(authTokens).where(eq(authTokens.userId, userId)), undefined);
   await tolerant(() => db.delete(activeSessions).where(eq(activeSessions.userId, userId)), undefined);
   await tolerant(() => db.delete(subscriptions).where(eq(subscriptions.userId, userId)), undefined);
+  await tolerant(() => db.delete(userDisciplines).where(eq(userDisciplines.userId, userId)), undefined);
   await tolerant(() => db.delete(noticeLog).where(eq(noticeLog.userId, userId)), undefined);
   await tolerant(() => db.delete(loginEvents).where(eq(loginEvents.userId, userId)), undefined);
   await tolerant(() => db.delete(inquiries).where(eq(inquiries.userId, userId)), undefined);

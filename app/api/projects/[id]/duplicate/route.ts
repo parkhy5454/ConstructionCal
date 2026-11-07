@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { projects, bomItems } from "@/lib/schema";
 import { getProjectOwned } from "@/lib/estimateData";
+import { disciplineBlock } from "@/lib/disciplineAccess";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const src = await getProjectOwned(user.id, id);
   if (!src) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
+
+  const dBlocked = await disciplineBlock(user, src.discipline);
+  if (dBlocked) return dBlocked;
 
   const db = getDb();
   const suffix = " (복사)";

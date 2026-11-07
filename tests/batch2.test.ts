@@ -8,6 +8,7 @@ import { deleteUserAccount, exportUserData, LastAdminError } from "../lib/accoun
 import { grantReferralReward, REFERRAL_MAX_REWARDS } from "../lib/referral";
 import { findCandidates, runNoticeJob } from "../lib/notices";
 import { estimateWarnings } from "../lib/warnings";
+import { allowedDisciplines, disciplineBlock, setDisciplineList, getDisciplineList, parseDisciplineList } from "../lib/disciplineAccess";
 import { isKnownEnvironment, loginStats, recentLogins, maskIp, describeAgent, purgeOldLogins } from "../lib/loginEvents";
 import type { Material, BomItem, ComputeResult } from "../lib/calc";
 
@@ -157,6 +158,32 @@ async function main() {
   ok(has(estimateWarnings([M(1, 100)], [B(1, 1, 1), B(2, 1, 2)], R(1, 1)), "여러 행"), "중복 행 안내");
   ok(has(estimateWarnings([M(1, 100)], [B(1, 1, 0)], R(1, 1)), "수량이 0"), "수량 0 안내");
   ok(has(estimateWarnings([M(1, 100)], [B(1, 1, 5)], R(500, 0)), "노무비가 전혀"), "노무비 0 경고");
+
+  // ---------- 공종별 요금제 ----------
+  delete process.env.DISCIPLINE_PLAN;
+  const dp = await mk("dp"), dt = await mk("dtrial"), dall = await mk("dall");
+  await db.delete(subscriptions);
+  await db.insert(subscriptions).values([
+    { userId: dp.id, trialEndsAt: new Date(now.getTime() - 30 * DAY), paidUntil: new Date(now.getTime() + 30 * DAY) },
+    { userId: dt.id, trialEndsAt: new Date(now.getTime() + 5 * DAY) },
+    { userId: dall.id, trialEndsAt: new Date(now.getTime() - 30 * DAY), paidUntil: new Date(now.getTime() + 30 * DAY) },
+  ]);
+  await setDisciplineList(dp.id, ["electrical", "fire"], db);
+  await setDisciplineList(dt.id, ["electrical"], db);
+  ok((await allowedDisciplines({ id: dp.id, role: "user" }, db)) === null, "기능이 꺼져 있으면(기본) 제한 없음");
+  process.env.DISCIPLINE_PLAN = "true";
+  const al = await allowedDisciplines({ id: dp.id, role: "user" }, db);
+  ok(JSON.stringify(al) === JSON.stringify(["electrical", "fire"]), "유료 구독자는 등록된 공종만");
+  ok((await disciplineBlock({ id: dp.id, role: "user" }, "electrical", db)) === null, "허용 공종은 통과");
+  const blk = await disciplineBlock({ id: dp.id, role: "user" }, "civil", db);
+  ok(blk?.status === 403, "허용되지 않은 공종은 403");
+  ok((await allowedDisciplines({ id: dt.id, role: "user" }, db)) === null, "체험 중에는 전체 공종");
+  ok((await allowedDisciplines({ id: dall.id, role: "user" }, db)) === null, "등록 행이 없으면 전체 공종(기존 가입자 보호)");
+  ok((await allowedDisciplines({ id: admin.id, role: "admin" }, db)) === null, "관리자는 제한 없음");
+  await setDisciplineList(dp.id, null, db);
+  ok((await getDisciplineList(dp.id, db)) === null, "전체로 되돌리면 행 삭제");
+  ok(JSON.stringify(parseDisciplineList("fire, bogus ,electrical")) === JSON.stringify(["electrical", "fire"]), "공종 파싱: 알 수 없는 값 무시·정렬");
+  delete process.env.DISCIPLINE_PLAN;
 
   if (fails) { console.log(`\n${fails}건 실패`); process.exit(1); }
   console.log("\n전부 통과");
