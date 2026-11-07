@@ -104,6 +104,12 @@ export default function EstimateDetailPage() {
           >
             📐 도면으로 물량 가져오기
           </Link>
+          <Link
+            href={`/app/estimate/${projectId}/print`}
+            className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
+          >
+            🖨 제출용 인쇄/PDF
+          </Link>
           <a
             href={`/api/projects/${projectId}/export`}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
