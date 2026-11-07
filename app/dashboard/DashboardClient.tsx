@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import TwoFactorSection from "./TwoFactorSection";
 
 type UserInfo = {
   name: string;
@@ -27,10 +28,13 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
     setError(null); setMsg(null); setSaving(true);
     try {
       const body: Record<string, string> = { name, email };
-      if (newPassword) {
-        body.currentPassword = currentPassword;
-        body.newPassword = newPassword;
+      const emailChanged = email.trim().toLowerCase() !== user.email.toLowerCase();
+      if (emailChanged && !currentPassword) {
+        setError("이메일을 바꾸려면 현재 비밀번호를 입력해주세요.");
+        return;
       }
+      if (newPassword || emailChanged) body.currentPassword = currentPassword;
+      if (newPassword) body.newPassword = newPassword;
       const res = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -40,7 +44,7 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
       if (!res.ok) { setError(data.error ?? "저장에 실패했습니다."); return; }
       setUser({ ...user, name, email, mustChangePassword: false });
       setCurrentPassword(""); setNewPassword("");
-      setMsg("저장되었습니다.");
+      setMsg(data.verificationSent ? "저장되었습니다. 새 이메일 주소로 인증 메일을 보냈으니 링크를 눌러 인증해주세요." : "저장되었습니다.");
     } catch {
       setError("네트워크 오류가 발생했습니다.");
     } finally {
@@ -84,7 +88,7 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
         <input value={name} onChange={(e) => setName(e.target.value)} className="border rounded-lg px-3 py-2" placeholder="이름" />
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-3 py-2" placeholder="이메일" />
         <hr className="my-1" />
-        <p className="text-xs text-gray-500">비밀번호를 바꾸려면 아래 두 칸을 모두 입력하세요.</p>
+        <p className="text-xs text-gray-500">비밀번호를 바꾸려면 아래 두 칸을 모두 입력하세요. 이메일을 바꿀 때도 &lsquo;현재 비밀번호&rsquo;가 필요합니다.</p>
         <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="border rounded-lg px-3 py-2" placeholder="현재 비밀번호" />
         <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border rounded-lg px-3 py-2" placeholder="새 비밀번호 (8자 이상, 영문+숫자)" />
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -93,6 +97,8 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
           {saving ? "저장 중..." : "저장"}
         </button>
       </form>
+
+      <TwoFactorSection isAdmin={user.role === "admin"} />
 
       {user.role === "admin" && (
         <a href="/admin" className="block text-center mt-4 text-sm underline">관리자 화면으로 이동</a>

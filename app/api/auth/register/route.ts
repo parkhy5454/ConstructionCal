@@ -3,13 +3,15 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { hashPassword, validateEmail, validatePasswordPolicy, genReferralCode } from "@/lib/auth";
-import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { rateLimitAsync, clientIp } from "@/lib/rateLimit";
+import { isEmailVerificationEnforced, markEmailUnverified, createToken } from "@/lib/security";
+import { sendMail, appBaseUrl, verificationEmail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  if (!rateLimit(`register:${ip}`, 5, 10 * 60_000)) {
+  if (!(await rateLimitAsync(`register:${ip}`, 5, 10 * 60_000))) {
     return NextResponse.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요." }, { status: 429 });
   }
 
@@ -55,18 +57,40 @@ export async function POST(req: NextRequest) {
     myCode = genReferralCode();
   }
 
-  await db.insert(users).values({
-    name,
-    email,
-    passwordHash,
-    role: "user",
-    status: "pending", // 관리자 승인 전까지 로그인 불가
-    referralCode: myCode,
-    referredBy,
-  });
+  const [created] = await db
+    .insert(users)
+    .values({
+      name,
+      email,
+      passwordHash,
+      role: "user",
+      status: "pending", // 관리자 승인 전까지 로그인 불가
+      referralCode: myCode,
+      referredBy,
+    })
+    .returning({ id: users.id });
+
+  // 이메일 인증이 켜져 있으면(메일 발송 설정 완료) 인증 메일을 보냅니다. 실패해도 가입 자체는 유지하고,
+  // 사용자가 로그인 화면에서 재발송할 수 있습니다.
+  let verificationSent = false;
+  if (isEmailVerificationEnforced()) {
+    try {
+      await markEmailUnverified(created.id);
+      const raw = await createToken(created.id, "verify_email", 24 * 60 * 60_000);
+      const mail = verificationEmail(name, `${appBaseUrl(req)}/verify-email?token=${raw}`);
+      verificationSent = (await sendMail({ to: email, ...mail })).ok;
+    } catch (e) {
+      console.error("[register] 이메일 인증 준비 실패(마이그레이션 필요?):", e instanceof Error ? e.message : e);
+    }
+  }
 
   return NextResponse.json(
-    { message: "가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다." },
+    {
+      message: verificationSent
+        ? "가입 신청이 접수되었습니다. 메일로 보낸 인증 링크를 눌러 이메일을 확인해주세요. 인증과 관리자 승인이 모두 끝나면 로그인할 수 있습니다."
+        : "가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.",
+      verificationSent,
+    },
     { status: 201 }
   );
 }

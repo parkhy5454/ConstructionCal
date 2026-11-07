@@ -39,6 +39,38 @@ export const adminActions = pgTable("admin_actions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------- 보안 부가 상태 (기존 users 테이블을 건드리지 않도록 별도 테이블로 분리) ----------
+// 이 테이블들이 아직 DB에 없어도(마이그레이션 전) 기존 로그인이 깨지지 않도록 코드가 방어합니다(lib/security.ts).
+
+// 이메일 인증 여부 + TOTP 2단계 인증 상태. 행이 없으면 "기능을 쓰지 않는 기존 계정"으로 간주합니다.
+export const userSecurity = pgTable("user_security", {
+  userId: integer("user_id").primaryKey(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }), // null이면 미인증
+  totpSecretEnc: text("totp_secret_enc"), // AES-256-GCM으로 암호화한 TOTP 비밀키
+  totpEnabled: integer("totp_enabled").notNull().default(0),
+  totpLastStep: integer("totp_last_step").notNull().default(0), // 마지막으로 사용된 30초 구간(코드 재사용 차단)
+  recoveryCodes: text("recovery_codes"), // 복구 코드의 SHA-256 해시 배열(JSON). 평문은 발급 시 1회만 보여줌
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 1회용 토큰(이메일 인증 링크). 원문은 메일로만 나가고 DB에는 SHA-256 해시만 저장합니다.
+export const authTokens = pgTable("auth_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  kind: varchar("kind", { length: 20 }).notNull(), // verify_email
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 서버리스 인스턴스 간에 공유되는 레이트리밋 카운터(메모리 방식은 인스턴스마다 따로 세어 우회되기 쉬움).
+export const rateLimits = pgTable("rate_limits", {
+  key: varchar("key", { length: 200 }).primaryKey(),
+  count: integer("count").notNull().default(0),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+});
+
 // ---------- 적산(견적) 도메인 ----------
 // 각 사용자가 "자신이 구매한" 물가자료/표준품셈 데이터를 보유 — 계정별로 독립적으로 관리됨
 

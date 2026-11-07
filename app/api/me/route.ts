@@ -3,7 +3,19 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users, adminActions } from "@/lib/schema";
 import { getCurrentUser } from "@/lib/currentUser";
-import { verifyPassword, hashPassword, validatePasswordPolicy, validateEmail } from "@/lib/auth";
+import {
+  verifyPassword,
+  hashPassword,
+  validatePasswordPolicy,
+  validateEmail,
+  signSession,
+  passwordFingerprint,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+} from "@/lib/auth";
+import { rateLimitAsync } from "@/lib/rateLimit";
+import { isEmailVerificationEnforced, markEmailUnverified, createToken } from "@/lib/security";
+import { sendMail, appBaseUrl, verificationEmail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -35,6 +47,23 @@ export async function PATCH(req: NextRequest) {
   const db = getDb();
   const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
 
+  // 비밀번호가 필요한 변경(이메일 변경, 비밀번호 변경)은 세션을 훔친 사람이 계정을 가로채지 못하도록
+  // 현재 비밀번호를 확인하고, 그 확인 시도 횟수도 제한합니다.
+  const emailChanging = body.email !== undefined && String(body.email).trim().toLowerCase() !== user.email;
+  let newEmail: string | null = null;
+  if (emailChanging || body.newPassword !== undefined) {
+    if (!(await rateLimitAsync(`me-pw:${user.id}`, 10, 10 * 60_000))) {
+      return NextResponse.json({ error: "시도가 너무 많습니다. 잠시 후 다시 시도하세요." }, { status: 429 });
+    }
+    const ok = await verifyPassword(String(body.currentPassword ?? ""), user.passwordHash);
+    if (!ok) {
+      return NextResponse.json(
+        { error: emailChanging ? "이메일을 바꾸려면 현재 비밀번호를 입력해야 합니다." : "현재 비밀번호가 올바르지 않습니다." },
+        { status: 401 }
+      );
+    }
+  }
+
   if (body.name !== undefined) {
     const name = String(body.name).trim();
     if (!name || name.length > 80) return NextResponse.json({ error: "이름이 올바르지 않습니다." }, { status: 400 });
@@ -48,13 +77,13 @@ export async function PATCH(req: NextRequest) {
     if (dup.length > 0 && dup[0].id !== user.id) {
       return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
     }
-    updates.email = email;
+    if (email !== user.email) {
+      updates.email = email;
+      newEmail = email;
+    }
   }
 
   if (body.newPassword !== undefined) {
-    const currentPassword = String(body.currentPassword ?? "");
-    const ok = await verifyPassword(currentPassword, user.passwordHash);
-    if (!ok) return NextResponse.json({ error: "현재 비밀번호가 올바르지 않습니다." }, { status: 401 });
     const pwErr = validatePasswordPolicy(String(body.newPassword));
     if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
     updates.passwordHash = await hashPassword(String(body.newPassword));
@@ -70,5 +99,27 @@ export async function PATCH(req: NextRequest) {
     detail: "본인 정보 수정",
   });
 
-  return NextResponse.json({ ok: true });
+  // 이메일이 바뀌면 새 주소를 다시 인증받습니다(인증이 켜진 경우). 인증 전까지 다음 로그인은 막힙니다.
+  let verificationSent = false;
+  if (newEmail && isEmailVerificationEnforced()) {
+    try {
+      await markEmailUnverified(user.id);
+      const raw = await createToken(user.id, "verify_email", 24 * 60 * 60_000);
+      const mail = verificationEmail(updates.name ?? user.name, `${appBaseUrl(req)}/verify-email?token=${raw}`);
+      verificationSent = (await sendMail({ to: newEmail, ...mail })).ok;
+    } catch (e) {
+      console.error("[me] 이메일 재인증 준비 실패:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  const res = NextResponse.json({ ok: true, verificationSent });
+  // 비밀번호를 바꾸면 이전 세션(다른 기기·탈취된 세션 포함)은 모두 무효가 되므로, 지금 이 기기에는 새 세션을 바로 발급합니다.
+  if (updates.passwordHash) {
+    res.cookies.set(
+      SESSION_COOKIE,
+      signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(updates.passwordHash) }),
+      sessionCookieOptions()
+    );
+  }
+  return res;
 }

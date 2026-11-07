@@ -10,7 +10,7 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(params.get("ref") ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -28,7 +28,7 @@ function SignupForm() {
         setError(data.error ?? "가입에 실패했습니다.");
         return;
       }
-      setDone(true);
+      setDone(data.message ?? "관리자 승인 후 로그인할 수 있습니다.");
     } catch {
       setError("네트워크 오류가 발생했습니다.");
     } finally {
@@ -40,7 +40,7 @@ function SignupForm() {
     return (
       <main className="mx-auto max-w-sm px-4 py-16 text-center">
         <h1 className="text-xl font-bold mb-3">가입 신청 완료</h1>
-        <p className="text-sm text-gray-600">관리자 승인 후 로그인할 수 있습니다.</p>
+        <p className="text-sm text-gray-600">{done}</p>
         <Link href="/login" className="underline text-sm mt-4 inline-block">로그인 화면으로</Link>
       </main>
     );
