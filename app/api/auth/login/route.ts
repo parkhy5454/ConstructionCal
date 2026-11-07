@@ -1,3 +1,4 @@
+import { issueSid } from "@/lib/sessionLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ needs2fa: true, challenge: signTwoFactorChallenge(user.id) });
   }
 
-  const token = signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(user.passwordHash) });
+  const { sid, replaced } = await issueSid(user.id);
+  const token = signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(user.passwordHash), sid });
   const res = NextResponse.json({
     user: {
       id: user.id,
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest) {
       role: user.role,
       mustChangePassword: user.mustChangePassword === 1,
     },
+    replacedOtherSession: replaced,
   });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return res;

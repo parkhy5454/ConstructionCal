@@ -32,6 +32,8 @@ export type SessionPayload = {
   // 발급 시점 비밀번호의 지문. 비밀번호가 바뀌면(본인 변경/관리자 재설정) 지문이 달라져 기존 세션이 모두 무효가 됩니다.
   // (이 기능 배포 이전에 발급된 토큰엔 pv가 없으며, 그 토큰은 최대 7일 뒤 자연 만료됩니다.)
   pv?: string;
+  // 세션 ID. 계정당 동시 로그인 1대 제한에 사용(active_sessions의 현재 sid와 같아야 유효).
+  sid?: string;
 };
 
 export function passwordFingerprint(passwordHash: string): string {

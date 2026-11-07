@@ -53,6 +53,13 @@ export const userSecurity = pgTable("user_security", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 계정당 동시 로그인 1대 제한: 사용자별로 "현재 유효한 세션 ID" 하나만 보관합니다. 새로 로그인하면 덮어써서 이전 기기는 로그아웃됩니다.
+export const activeSessions = pgTable("active_sessions", {
+  userId: integer("user_id").primaryKey(),
+  sid: varchar("sid", { length: 32 }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 1회용 토큰(이메일 인증 링크). 원문은 메일로만 나가고 DB에는 SHA-256 해시만 저장합니다.
 export const authTokens = pgTable("auth_tokens", {
   id: serial("id").primaryKey(),

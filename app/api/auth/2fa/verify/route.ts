@@ -1,3 +1,4 @@
+import { issueSid } from "@/lib/sessionLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -36,9 +37,11 @@ export async function POST(req: NextRequest) {
   const ok = await verifySecondFactor(user.id, String(body.code ?? "").slice(0, 40));
   if (!ok) return NextResponse.json({ error: "인증 코드가 올바르지 않습니다." }, { status: 401 });
 
-  const token = signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(user.passwordHash) });
+  const { sid, replaced } = await issueSid(user.id);
+  const token = signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(user.passwordHash), sid });
   const res = NextResponse.json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword === 1 },
+    replacedOtherSession: replaced,
   });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return res;

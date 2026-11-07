@@ -9,6 +9,7 @@ import {
   validatePasswordPolicy,
   validateEmail,
   signSession,
+  verifySession,
   passwordFingerprint,
   sessionCookieOptions,
   SESSION_COOKIE,
@@ -117,7 +118,7 @@ export async function PATCH(req: NextRequest) {
   if (updates.passwordHash) {
     res.cookies.set(
       SESSION_COOKIE,
-      signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(updates.passwordHash) }),
+      signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(updates.passwordHash), sid: verifySession(req.cookies.get(SESSION_COOKIE)?.value ?? "")?.sid }),
       sessionCookieOptions()
     );
   }

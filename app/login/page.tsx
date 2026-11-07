@@ -142,6 +142,9 @@ export default function LoginPage() {
           {loading ? "로그인 중..." : "로그인"}
         </button>
       </form>
+      <p className="text-xs text-gray-400 mt-3">
+        한 계정은 한 기기에서만 로그인할 수 있습니다. 다른 기기에서 로그인하면 기존 기기는 자동으로 로그아웃됩니다.
+      </p>
       <p className="text-sm text-gray-500 mt-4">
         계정이 없으신가요? <Link href="/signup" className="underline">회원가입</Link>
       </p>

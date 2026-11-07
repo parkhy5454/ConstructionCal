@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./db";
 import { users } from "./schema";
 import { verifySession, sessionMatchesPassword, SESSION_COOKIE } from "./auth";
+import { sidIsCurrent } from "./sessionLimit";
 
 // 토큰의 role/status는 발급 시점 스냅샷이므로(최대 7일), 민감한 작업 전에는
 // 항상 DB에서 현재 상태를 다시 조회해 "승인취소/권한변경 이후에도 옛 토큰으로 접근" 되는 상황을 막습니다.
@@ -18,6 +19,7 @@ export async function getCurrentUser(req: NextRequest) {
   const user = rows[0];
   if (user.status !== "approved") return null; // 승인취소된 경우 즉시 차단
   if (!sessionMatchesPassword(payload, user.passwordHash)) return null; // 비밀번호가 바뀐 뒤엔 옛 세션 차단
+  if (!(await sidIsCurrent(user.id, payload.sid))) return null; // 다른 기기에서 새로 로그인하면 이 세션은 종료
   return user;
 }
 
