@@ -17,6 +17,7 @@ export default function PrintPage() {
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState("");
   const [client, setClient] = useState("");
+  const [priceBasis, setPriceBasis] = useState("");
   const [date, setDate] = useState(() => new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }));
   const [logo, setLogo] = useState<string | null>(null);
   const [seal, setSeal] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export default function PrintPage() {
       const cid = data.meta?.clientId;
       const c = (data.clients ?? []).find((x: { id: number; name: string }) => x.id === cid);
       if (c) setClient(c.name);
+      setPriceBasis(data.meta?.priceBasis ?? "");
     })();
   }, [params.id]);
 
@@ -137,6 +139,7 @@ export default function PrintPage() {
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #bbb", padding: "6px 0" }}><span>견적금액 (VAT 포함)</span><b>일금 {won(result.final)}원정</b></div>
             {client && <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #bbb", padding: "6px 0" }}><span>제출처</span><b>{client} 귀중</b></div>}
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #bbb", padding: "6px 0" }}><span>제출일</span><b>{date}</b></div>
+            {priceBasis && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #bbb", padding: "6px 0" }}><span style={{ whiteSpace: "nowrap" }}>단가 기준</span><b style={{ textAlign: "right" }}>{priceBasis}</b></div>}
             {company && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #bbb", padding: "6px 0", position: "relative" }}>
                 <span>상호</span>

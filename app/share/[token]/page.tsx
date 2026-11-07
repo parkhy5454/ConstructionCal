@@ -27,10 +27,11 @@ export default async function SharePage({ params }: { params: { token: string } 
   }
   let r: Awaited<ReturnType<typeof resolveShare>>;
   let result: Awaited<ReturnType<typeof computeProject>>["result"];
+  let priceBasis = "";
   try {
     r = await resolveShare(params.token);
     if (!r) return <Gone message="링크가 만료되었거나 해지되었거나 올바르지 않습니다. 견적서를 보내 준 분께 새 링크를 요청해 주세요." />;
-    ({ result } = await computeProject({ id: r.project.id, userId: r.project.userId, discipline: r.project.discipline, name: r.project.name }));
+    ({ result, meta: { priceBasis } } = await computeProject({ id: r.project.id, userId: r.project.userId, discipline: r.project.discipline, name: r.project.name }));
   } catch (e) {
     await reportError("share-page", e);
     return <Gone message="일시적인 오류로 견적서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." />;
@@ -51,6 +52,7 @@ export default async function SharePage({ params }: { params: { token: string } 
           <div style={{ fontSize: 18, fontWeight: 700 }}>{r.project.name}</div>
           <div style={{ marginTop: 16, fontSize: 14 }}>견적금액 (VAT 포함) <b>일금 {won(result.final)}원정</b></div>
           <div style={{ marginTop: 6, fontSize: 12, color: "#777" }}>제출: {r.ownerName}</div>
+          {priceBasis && <div style={{ marginTop: 2, fontSize: 12, color: "#777" }}>단가 기준: {priceBasis}</div>}
         </section>
         <section className="page-break">
           <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>총 괄 표</h2>

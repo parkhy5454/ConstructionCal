@@ -95,6 +95,12 @@ async function main() {
   await pg.exec("insert into users (name,email,password_hash,role,status,referral_code) values ('홍길동','a@b.com','x','user','approved','AAAAAAAA'),('정지','c@d.com','x','user','rejected','BBBBBBBB')");
   await pg.exec("insert into projects (user_id,discipline,name) values (1,'electrical','P1'),(2,'electrical','P2')");
 
+  // 0008 적용 전(price_basis 컬럼 없음)에도 메타 조회는 오류 없이 기본값으로 동작해야 함(배포 후 db:push 전 상태)
+  const pre = await getMeta(1, db);
+  ok(pre.status === "draft", "price_basis 컬럼이 없어도 메타 조회는 기본값으로 동작");
+  const fs8 = fs.readFileSync("drizzle/0008_lumpy_dorian_gray.sql", "utf8");
+  await pg.exec(fs8.replace(/--> statement-breakpoint/g, ""));
+
   await saveMeta(1, { status: "submitted", surcharges: [{ id: "s", label: "고소", percent: 12.5, group: null }], memo: "메모" }, db);
   const m = await getMeta(1, db);
   ok(m.status === "submitted" && m.surcharges[0].percent === 12.5 && m.memo === "메모", "메타 저장·조회 왕복");

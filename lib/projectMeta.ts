@@ -2,7 +2,9 @@
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import { projectMeta } from "./schema";
-import { isMissingTable } from "./security";
+import { isMissingTable, isMissingColumn } from "./security";
+
+const isMissingSchema = (e: unknown) => isMissingTable(e) || isMissingColumn(e);
 import type { Surcharge } from "./calc";
 
 type Db = ReturnType<typeof getDb>;
@@ -11,8 +13,8 @@ export const PROJECT_STATUSES = ["draft", "submitted", "won", "lost"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const STATUS_LABELS: Record<ProjectStatus, string> = { draft: "작성 중", submitted: "제출", won: "수주", lost: "실주" };
 
-export type Meta = { surcharges: Surcharge[]; status: ProjectStatus; clientId: number | null; memo: string };
-export const DEFAULT_META: Meta = { surcharges: [], status: "draft", clientId: null, memo: "" };
+export type Meta = { surcharges: Surcharge[]; status: ProjectStatus; clientId: number | null; memo: string; priceBasis: string };
+export const DEFAULT_META: Meta = { surcharges: [], status: "draft", clientId: null, memo: "", priceBasis: "" };
 
 // 입력 검증: 잘못된 항목은 에러 문자열을 돌려줍니다.
 export function parseSurcharges(input: unknown): { ok: true; value: Surcharge[] } | { ok: false; error: string } {
@@ -38,7 +40,7 @@ function rowToMeta(r: typeof projectMeta.$inferSelect | undefined): Meta {
     if (p.ok) surcharges = p.value;
   } catch {}
   const status = (PROJECT_STATUSES as readonly string[]).includes(r.status) ? (r.status as ProjectStatus) : "draft";
-  return { surcharges, status, clientId: r.clientId ?? null, memo: r.memo ?? "" };
+  return { surcharges, status, clientId: r.clientId ?? null, memo: r.memo ?? "", priceBasis: r.priceBasis ?? "" };
 }
 
 export async function getMeta(projectId: number, db: Db = getDb()): Promise<Meta> {
@@ -46,7 +48,7 @@ export async function getMeta(projectId: number, db: Db = getDb()): Promise<Meta
     const rows = await db.select().from(projectMeta).where(eq(projectMeta.projectId, projectId)).limit(1);
     return rowToMeta(rows[0]);
   } catch (e) {
-    if (isMissingTable(e)) return { ...DEFAULT_META };
+    if (isMissingSchema(e)) return { ...DEFAULT_META };
     throw e;
   }
 }
@@ -58,7 +60,7 @@ export async function getMetaMap(projectIds: number[], db: Db = getDb()): Promis
     const rows = await db.select().from(projectMeta).where(inArray(projectMeta.projectId, projectIds));
     for (const r of rows) map.set(r.projectId, rowToMeta(r));
   } catch (e) {
-    if (!isMissingTable(e)) throw e;
+    if (!isMissingSchema(e)) throw e;
   }
   return map;
 }
@@ -73,13 +75,13 @@ export async function saveMeta(projectId: number, patch: Partial<Meta>, db: Db =
   try {
     await db
       .insert(projectMeta)
-      .values({ projectId, surcharges: JSON.stringify(next.surcharges), status: next.status, clientId: next.clientId, memo: next.memo })
+      .values({ projectId, surcharges: JSON.stringify(next.surcharges), status: next.status, clientId: next.clientId, memo: next.memo, priceBasis: next.priceBasis || null })
       .onConflictDoUpdate({
         target: projectMeta.projectId,
-        set: { surcharges: JSON.stringify(next.surcharges), status: next.status, clientId: next.clientId, memo: next.memo, updatedAt: new Date() },
+        set: { surcharges: JSON.stringify(next.surcharges), status: next.status, clientId: next.clientId, memo: next.memo, priceBasis: next.priceBasis || null, updatedAt: new Date() },
       });
   } catch (e) {
-    if (isMissingTable(e)) throw new MetaTableMissingError();
+    if (isMissingSchema(e)) throw new MetaTableMissingError();
     throw e;
   }
   return next;

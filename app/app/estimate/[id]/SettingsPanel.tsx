@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Surcharge } from "@/lib/calc";
 
-type Meta = { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string };
+type Meta = { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string; priceBasis: string };
 
 const STATUS: Array<[string, string]> = [["draft", "작성 중"], ["submitted", "제출"], ["won", "수주"], ["lost", "실주"]];
 // 비율은 출발값 예시입니다. 현장·발주처 기준(표준품셈의 할증 규정)에 맞게 수정해서 쓰세요.
@@ -16,6 +16,7 @@ export default function SettingsPanel({
 }) {
   const [surcharges, setSurcharges] = useState<Surcharge[]>(meta.surcharges);
   const [memo, setMemo] = useState(meta.memo);
+  const [basis, setBasis] = useState(meta.priceBasis ?? "");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const dirtySur = JSON.stringify(surcharges) !== JSON.stringify(meta.surcharges);
@@ -53,6 +54,13 @@ export default function SettingsPanel({
           </select>
         </label>
       </div>
+
+      <label className="block text-xs space-y-1">
+        <span className="text-gray-500">단가 기준 (제출 문서·공유 링크에 표기)</span>
+        <input value={basis} maxLength={80} onChange={(e) => setBasis(e.target.value)}
+          onBlur={() => { if (basis !== (meta.priceBasis ?? "")) put({ priceBasis: basis }); }}
+          placeholder="예: 종합물가정보 2026년 11월호 서울 기준" className="w-full border rounded-lg px-2 py-1.5" />
+      </label>
 
       <label className="block text-xs space-y-1">
         <span className="text-gray-500">내부 메모 (제출 문서에는 나오지 않음)</span>

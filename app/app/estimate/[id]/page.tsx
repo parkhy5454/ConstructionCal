@@ -8,6 +8,7 @@ import SettingsPanel from "./SettingsPanel";
 import SharePanel from "./SharePanel";
 import QuickAdd from "./QuickAdd";
 import FixLabor from "./FixLabor";
+import { estimateWarnings } from "@/lib/warnings";
 
 type ProjectData = {
   project: { id: number; name: string; discipline: Discipline };
@@ -15,7 +16,7 @@ type ProjectData = {
   laborRates: Array<{ code: string; name: string; rate: number }>;
   bom: BomItem[];
   result: ComputeResult;
-  meta: { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string };
+  meta: { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string; priceBasis: string };
   clients: Array<{ id: number; name: string }>;
 };
 
@@ -89,6 +90,7 @@ export default function EstimateDetailPage() {
   const noLaborItems = result.groupResults.flatMap((g) => g.items).filter((i) => i.neededLabor === 0 && i.qty > 0);
   const noLaborUnique = Array.from(new Map(noLaborItems.map((i) => [i.materialId, i])).values());
   const groupNames = Array.from(new Set(bom.map((b) => b.groupName)));
+  const warnings = estimateWarnings(materials, bom, result);
 
   return (
     <div className="space-y-5">
@@ -208,6 +210,20 @@ export default function EstimateDetailPage() {
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         <QuickAdd projectId={projectId} laborRates={laborRates} defaultGroup={newGroup} onAdded={load} />
       </section>
+
+      {warnings.length > 0 && (
+        <section className="bg-white border rounded-xl p-4">
+          <h2 className="text-sm font-bold mb-2">검토 알림 <span className="text-[10px] bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 ml-1">{warnings.length}건</span></h2>
+          <ul className="space-y-1.5 text-xs">
+            {warnings.map((w, i) => (
+              <li key={i} className={`flex gap-2 ${w.level === "warn" ? "text-amber-800" : "text-gray-500"}`}>
+                <span>{w.level === "warn" ? "⚠️" : "ℹ️"}</span><span>{w.text}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-gray-400 mt-2">입력 실수가 의심되는 항목을 알려 드리는 것이며, 계산에는 영향을 주지 않습니다.</p>
+        </section>
+      )}
 
       {/* 내역서 */}
       <section className="bg-white border rounded-xl p-4">

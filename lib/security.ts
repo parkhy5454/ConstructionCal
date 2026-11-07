@@ -26,6 +26,15 @@ export function isMissingTable(e: unknown): boolean {
   return err.cause ? isMissingTable(err.cause) : false;
 }
 
+// Postgres 42703 = undefined_column (코드가 먼저 배포되고 컬럼 추가 마이그레이션이 아직 안 된 경우)
+export function isMissingColumn(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as { code?: string; message?: string; cause?: unknown };
+  if (err.code === "42703") return true;
+  if (typeof err.message === "string" && /column ".*" (of relation ".*" )?does not exist/i.test(err.message)) return true;
+  return err.cause ? isMissingColumn(err.cause) : false;
+}
+
 export function sha256Hex(s: string): string {
   return crypto.createHash("sha256").update(s).digest("hex");
 }

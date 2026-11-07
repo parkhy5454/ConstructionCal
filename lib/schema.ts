@@ -69,6 +69,7 @@ export const projectMeta = pgTable("project_meta", {
   status: varchar("status", { length: 12 }).notNull().default("draft"), // draft | submitted | won | lost
   clientId: integer("client_id"),
   memo: text("memo"),
+  priceBasis: varchar("price_basis", { length: 80 }), // 단가 기준(예: 종합물가정보 2026년 11월호) — 제출 문서에 표기
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -104,6 +105,39 @@ export const shareLinks = pgTable("share_links", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   viewCount: integer("view_count").notNull().default(0),
   lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------- 알림 중복 방지 / 접속 기록 / 문의 ----------
+
+// 같은 알림(체험 종료 안내 등)을 두 번 보내지 않기 위한 기록. (user, kind, ref)가 같으면 한 번만.
+export const noticeLog = pgTable("notice_log", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  kind: varchar("kind", { length: 30 }).notNull(),
+  ref: varchar("ref", { length: 40 }).notNull().default(""),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniq: unique().on(t.userId, t.kind, t.ref),
+}));
+
+// 로그인 성공 기록(보안 알림·계정 공유 의심 지표용). 90일이 지나면 삭제합니다.
+export const loginEvents = pgTable("login_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  ip: varchar("ip", { length: 64 }).notNull().default(""),
+  userAgent: varchar("user_agent", { length: 200 }).notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 문의하기 접수 내역
+export const inquiries = pgTable("inquiries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  name: varchar("name", { length: 80 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  status: varchar("status", { length: 10 }).notNull().default("new"), // new | done
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

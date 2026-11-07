@@ -55,6 +55,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (memo.length > 2000) return NextResponse.json({ error: "메모는 2000자 이하로 입력하세요." }, { status: 400 });
     patch.memo = memo;
   }
+  if (body.priceBasis !== undefined) {
+    const pb = String(body.priceBasis).trim();
+    if (pb.length > 80) return NextResponse.json({ error: "단가 기준은 80자 이하로 입력하세요." }, { status: 400 });
+    patch.priceBasis = pb;
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "변경할 항목이 없습니다." }, { status: 400 });
 
   try {

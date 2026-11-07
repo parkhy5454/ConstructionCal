@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TwoFactorSection from "./TwoFactorSection";
+import AccountSection from "./AccountSection";
 
 type UserInfo = {
   name: string;
@@ -99,6 +100,7 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
       </form>
 
       <TwoFactorSection isAdmin={user.role === "admin"} />
+      <AccountSection />
 
       {user.role === "admin" && (
         <a href="/admin" className="block text-center mt-4 text-sm underline">관리자 화면으로 이동</a>
