@@ -14,6 +14,7 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  experimental: { instrumentationHook: true },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
