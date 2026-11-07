@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/serverUser";
 import { getSubscriptionInfo } from "@/lib/subscription";
+import Link from "next/link";
 import AppShell from "./AppShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +18,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : null;
   return (
     <AppShell userName={user.name} isAdmin={user.role === "admin"}>
-      {banner && <div className={`no-print mb-4 rounded-lg border px-3 py-2 text-xs ${banner.cls}`}>{banner.text}</div>}
+      {banner && (
+        <div className={`no-print mb-4 rounded-lg border px-3 py-2 text-xs ${banner.cls}`}>
+          {banner.text} <Link href="/pricing" className="underline font-semibold">요금 안내</Link>
+        </div>
+      )}
       {children}
     </AppShell>
   );

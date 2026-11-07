@@ -23,7 +23,7 @@ export default async function Home() {
         </div>
       )}
       <p className="mt-8 text-xs text-gray-400 text-center">
-        <Link href="/terms" className="underline">이용약관</Link> · <Link href="/privacy" className="underline">개인정보처리방침</Link>
+        <Link href="/pricing" className="underline">요금 안내</Link> · <Link href="/terms" className="underline">이용약관</Link> · <Link href="/privacy" className="underline">개인정보처리방침</Link>
       </p>
     </main>
   );
