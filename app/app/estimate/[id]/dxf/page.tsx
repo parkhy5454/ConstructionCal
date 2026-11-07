@@ -79,6 +79,17 @@ export default function DxfImportPage() {
     setFileName(file.name);
     setError(null);
     setAutoNotice(null);
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith(".dwg")) {
+      setRows(null);
+      setError("DWG 파일은 바로 읽을 수 없습니다. 아래 '변환 방법'대로 DXF로 저장한 뒤 다시 올려주세요.");
+      return;
+    }
+    if (lower.endsWith(".pdf")) {
+      setRows(null);
+      setError("PDF로 변환된 도면은 레이어·블록 정보가 사라져 물량을 정확히 집계할 수 없습니다. PDF를 만들기 전의 DWG 원본을 DXF로 저장해 올려주세요. (엑셀 내역서가 있다면 '엑셀 내역서로 물량 가져오기'가 더 정확합니다.)");
+      return;
+    }
     setLoading(true);
     setRows(null);
     try {
@@ -169,7 +180,16 @@ export default function DxfImportPage() {
       </div>
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
-        <input type="file" accept=".dxf" onChange={onFileChange} className="text-sm" />
+        <input type="file" accept=".dxf,.dwg,.pdf" onChange={onFileChange} className="text-sm" />
+        <details className="text-xs text-gray-500 rounded-lg bg-gray-50 p-3">
+          <summary className="cursor-pointer font-semibold text-gray-600">DWG/PDF 도면이라면? DXF 변환 방법</summary>
+          <ul className="mt-2 space-y-1.5 list-disc pl-4">
+            <li><b>CAD 프로그램이 있을 때:</b> AutoCAD·ZWCAD·BricsCAD에서 도면을 열고 &ldquo;다른 이름으로 저장&rdquo; → 파일 형식을 <b>DXF</b>로 선택합니다.</li>
+            <li><b>CAD가 없을 때:</b> 무료 <b>ODA File Converter</b>(또는 Autodesk DWG TrueView)로 DWG를 DXF로 바꿀 수 있습니다.</li>
+            <li><b>PDF만 있을 때:</b> PDF로 변환된 도면은 레이어·블록 정보가 없어 자동 집계가 부정확합니다. PDF를 만들기 전의 DWG 원본을 구해 DXF로 저장해주세요.</li>
+            <li>저장 후 <b>도면 단위(mm 또는 m)</b>를 아래 &ldquo;환산배수&rdquo;에서 확인하세요. 배관·배선은 레이어별, 기구는 블록으로 그려진 도면일수록 정확합니다.</li>
+          </ul>
+        </details>
         {fileName && <p className="text-xs text-gray-400">{fileName}</p>}
         {loading && <p className="text-sm text-gray-400">분석 중...</p>}
         {submitting && !rows && <p className="text-sm text-gray-400">반영 중...</p>}
