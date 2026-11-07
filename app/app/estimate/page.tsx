@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { DISCIPLINES, DISCIPLINE_LABELS } from "@/lib/calc";
 import type { Discipline } from "@/lib/calc";
 
-type Project = { id: number; name: string; discipline: Discipline; updatedAt: string };
+type Project = {
+  id: number; name: string; discipline: Discipline; updatedAt: string;
+  final: number | null; status: string; clientName: string | null;
+};
+const STATUS_LABEL: Record<string, string> = { draft: "작성 중", submitted: "제출", won: "수주", lost: "실주" };
+const STATUS_COLOR: Record<string, string> = { draft: "bg-gray-100 text-gray-500", submitted: "bg-blue-50 text-blue-700", won: "bg-green-50 text-green-700", lost: "bg-red-50 text-red-600" };
 
 export default function EstimateListPage() {
   const router = useRouter();
@@ -17,6 +22,7 @@ export default function EstimateListPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Discipline | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -77,9 +83,9 @@ export default function EstimateListPage() {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return projects
-      .filter((p) => (filter === "all" || p.discipline === filter) && (!q || p.name.toLowerCase().includes(q)))
+      .filter((p) => (filter === "all" || p.discipline === filter) && (statusFilter === "all" || p.status === statusFilter) && (!q || `${p.name} ${p.clientName ?? ""}`.toLowerCase().includes(q)))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [projects, query, filter]);
+  }, [projects, query, filter, statusFilter]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: projects.length };
@@ -89,7 +95,10 @@ export default function EstimateListPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-bold">📄 견적서</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold">📄 견적서</h1>
+        <Link href="/app/clients" className="text-xs text-gray-500 underline">🏢 거래처 관리</Link>
+      </div>
 
       <form onSubmit={createProject} className="bg-white border rounded-xl p-3 space-y-2">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -126,9 +135,17 @@ export default function EstimateListPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="견적서 이름 검색"
+            placeholder="견적서 이름·거래처 검색"
             className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
           />
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {["all", "draft", "submitted", "won", "lost"].map((s) => (
+              <button key={s} type="button" onClick={() => setStatusFilter(s)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${s === statusFilter ? "bg-[#1f6f54] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                {s === "all" ? "모든 상태" : STATUS_LABEL[s]}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {(["all", ...DISCIPLINES] as const).filter((d) => d === "all" || counts[d]).map((d) => (
               <button
@@ -172,7 +189,12 @@ export default function EstimateListPage() {
                     <span className="ml-1 text-[10px] font-medium text-[#1f6f54] bg-[#e3efe8] rounded-full px-2 py-0.5 whitespace-nowrap">
                       {DISCIPLINE_LABELS[p.discipline] ?? p.discipline}
                     </span>
-                    <div className="text-xs text-gray-400 mt-0.5">{new Date(p.updatedAt).toLocaleDateString("ko-KR")}</div>
+                    <span className={`ml-1 text-[10px] font-medium rounded-full px-2 py-0.5 whitespace-nowrap ${STATUS_COLOR[p.status] ?? STATUS_COLOR.draft}`}>{STATUS_LABEL[p.status] ?? p.status}</span>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {new Date(p.updatedAt).toLocaleDateString("ko-KR")}
+                      {p.clientName && ` · ${p.clientName}`}
+                      {p.final != null && p.final > 0 && <span className="text-gray-600 font-semibold"> · {Math.round(p.final).toLocaleString("ko-KR")}원</span>}
+                    </div>
                   </Link>
                   <div className="flex items-center gap-3 shrink-0 text-xs">
                     <button onClick={() => { setEditingId(p.id); setEditName(p.name); }} className="text-gray-500 underline">이름변경</button>
