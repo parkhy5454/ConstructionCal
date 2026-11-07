@@ -12,6 +12,7 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,7 +22,7 @@ function SignupForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, referralCode: referralCode || undefined }),
+        body: JSON.stringify({ name, email, password, referralCode: referralCode || undefined, agreed }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -54,8 +55,15 @@ function SignupForm() {
         <input type="email" required placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-3 py-2" />
         <input type="password" required placeholder="비밀번호 (8자 이상, 영문+숫자)" value={password} onChange={(e) => setPassword(e.target.value)} className="border rounded-lg px-3 py-2" />
         <input placeholder="추천인 코드 (선택)" value={referralCode} onChange={(e) => setReferralCode(e.target.value.toUpperCase())} className="border rounded-lg px-3 py-2" />
+        <label className="flex items-start gap-2 text-xs text-gray-600">
+          <input type="checkbox" required checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5" />
+          <span>
+            <Link href="/terms" target="_blank" className="underline">이용약관</Link> 및{" "}
+            <Link href="/privacy" target="_blank" className="underline">개인정보처리방침</Link>에 동의합니다. (필수)
+          </span>
+        </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button disabled={loading} className="bg-black text-white rounded-lg py-2 font-semibold disabled:opacity-50">
+        <button disabled={loading || !agreed} className="bg-black text-white rounded-lg py-2 font-semibold disabled:opacity-50">
           {loading ? "가입 신청 중..." : "가입 신청"}
         </button>
       </form>

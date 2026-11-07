@@ -22,6 +22,9 @@ export default async function Home() {
           <Link href="/signup" className="inline-block border rounded-lg px-5 py-2 font-semibold w-40">회원가입</Link>
         </div>
       )}
+      <p className="mt-8 text-xs text-gray-400 text-center">
+        <Link href="/terms" className="underline">이용약관</Link> · <Link href="/privacy" className="underline">개인정보처리방침</Link>
+      </p>
     </main>
   );
 }

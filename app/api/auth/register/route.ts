@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
 
+  if (body.agreed !== true) {
+    return NextResponse.json({ error: "이용약관과 개인정보처리방침에 동의해야 가입할 수 있습니다." }, { status: 400 });
+  }
+
   const name = String(body.name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
