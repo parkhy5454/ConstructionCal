@@ -12,6 +12,8 @@ type AdminUser = {
   referredBy: string | null;
   mustChangePassword: number;
   createdAt: string;
+  totpEnabled: boolean;
+  emailVerified: boolean | null; // null = 이메일 인증 대상 아님
 };
 
 const statusLabel: Record<AdminUser["status"], string> = {
@@ -58,6 +60,11 @@ export default function AdminClient({ selfId }: { selfId: number }) {
     }
   }
 
+  function disable2fa(u: AdminUser) {
+    if (!confirm(`${u.name}님의 2단계 인증을 해제할까요?\n인증 앱과 복구 코드를 모두 잃은 사용자를 구제할 때만 사용하세요. 본인 확인을 먼저 하세요.`)) return;
+    patchUser(u.id, { disable2fa: true });
+  }
+
   function resetPassword(id: number) {
     const pw = prompt("새 비밀번호를 입력하세요 (8자 이상, 영문+숫자). 사용자는 다음 로그인 시 반드시 변경해야 합니다.");
     if (!pw) return;
@@ -81,6 +88,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                 <th className="text-left px-3 py-2">이름 / 이메일</th>
                 <th className="text-left px-3 py-2">권한</th>
                 <th className="text-left px-3 py-2">상태</th>
+                <th className="text-left px-3 py-2">보안</th>
                 <th className="text-left px-3 py-2">추천코드</th>
                 <th className="text-left px-3 py-2">작업</th>
               </tr>
@@ -110,6 +118,22 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${statusColor[u.status]}`}>{statusLabel[u.status]}</span>
                   </td>
+                  <td className="px-3 py-2 text-xs space-y-1 whitespace-nowrap">
+                    <div>
+                      <span className={`px-2 py-0.5 rounded-full ${u.totpEnabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}`}>
+                        2FA {u.totpEnabled ? "사용" : "꺼짐"}
+                      </span>
+                    </div>
+                    <div>
+                      {u.emailVerified === null ? (
+                        <span className="text-gray-300">이메일 인증 대상 아님</span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full ${u.emailVerified ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                          이메일 {u.emailVerified ? "인증됨" : "미인증"}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 font-mono text-xs">{u.referralCode}</td>
                   <td className="px-3 py-2 space-x-2 whitespace-nowrap">
                     {u.id !== selfId && u.status !== "approved" && (
@@ -119,6 +143,12 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                       <button disabled={busyId === u.id} onClick={() => patchUser(u.id, { status: "rejected" })} className="text-red-700 underline text-xs">반려</button>
                     )}
                     <button disabled={busyId === u.id} onClick={() => resetPassword(u.id)} className="text-blue-700 underline text-xs">비밀번호 재설정</button>
+                    {u.id !== selfId && u.totpEnabled && (
+                      <button disabled={busyId === u.id} onClick={() => disable2fa(u)} className="text-purple-700 underline text-xs">2FA 해제</button>
+                    )}
+                    {u.emailVerified === false && (
+                      <button disabled={busyId === u.id} onClick={() => patchUser(u.id, { verifyEmail: true })} className="text-teal-700 underline text-xs">이메일 인증 처리</button>
+                    )}
                   </td>
                 </tr>
               ))}

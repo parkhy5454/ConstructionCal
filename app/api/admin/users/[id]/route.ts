@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { users, adminActions } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
 import { hashPassword, validatePasswordPolicy, validateEmail } from "@/lib/auth";
+import { disableTotp, markEmailVerified, SecurityTablesMissingError } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -73,11 +74,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     logs.push({ action: "reset_password", detail: "관리자가 비밀번호 재설정 (평문 비밀번호는 로그에 남기지 않음)" });
   }
 
-  if (Object.keys(updates).length <= 1) {
+  // 보안 조치: 2FA 해제(인증 앱·복구 코드를 모두 잃은 사용자 구제), 이메일 인증 수동 처리(메일이 안 가는 경우).
+  // 본인에게는 이 경로를 쓸 수 없습니다 — 본인의 2FA는 '내 정보'에서 비밀번호+코드로만 해제할 수 있습니다.
+  const secActions: Array<"disable_2fa" | "verify_email"> = [];
+  if (body.disable2fa === true) {
+    if (isSelf) return NextResponse.json({ error: "본인의 2단계 인증은 '내 정보'에서 해제하세요." }, { status: 400 });
+    secActions.push("disable_2fa");
+  }
+  if (body.verifyEmail === true) secActions.push("verify_email");
+
+  if (Object.keys(updates).length <= 1 && secActions.length === 0) {
     return NextResponse.json({ error: "변경할 항목이 없습니다." }, { status: 400 });
   }
 
-  await db.update(users).set(updates).where(eq(users.id, targetId));
+  try {
+    for (const a of secActions) {
+      if (a === "disable_2fa") await disableTotp(target.id);
+      else await markEmailVerified(target.id);
+      logs.push({ action: a, detail: a === "disable_2fa" ? "관리자가 2단계 인증을 해제" : "관리자가 이메일 인증을 수동 처리" });
+    }
+  } catch (e) {
+    if (e instanceof SecurityTablesMissingError) {
+      return NextResponse.json({ error: "보안 기능 테이블이 아직 없습니다. 운영 DB에 npm run db:push를 먼저 실행하세요." }, { status: 503 });
+    }
+    throw e;
+  }
+
+  if (Object.keys(updates).length > 1) {
+    await db.update(users).set(updates).where(eq(users.id, targetId));
+  }
 
   for (const l of logs) {
     await db.insert(adminActions).values({

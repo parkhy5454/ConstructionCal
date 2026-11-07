@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
+import { listSecurity } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -26,5 +27,12 @@ export async function GET(req: NextRequest) {
     .from(users)
     .orderBy(desc(users.createdAt));
 
-  return NextResponse.json({ users: rows });
+  // 2FA 사용 여부 / 이메일 인증 여부 (emailVerified null = 인증 대상 아님: 기존 가입자 등)
+  const sec = await listSecurity();
+  const enriched = rows.map((u) => {
+    const s = sec.get(u.id);
+    return { ...u, totpEnabled: s?.totpEnabled === 1, emailVerified: s ? !!s.emailVerifiedAt : null };
+  });
+
+  return NextResponse.json({ users: enriched });
 }

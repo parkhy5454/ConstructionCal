@@ -46,6 +46,17 @@ export async function getSecurity(userId: number, db: Db = getDb()): Promise<Use
   }
 }
 
+// 관리자 화면용: 전체 사용자의 보안 상태. 테이블이 없으면 빈 Map(= 아무도 기능을 쓰지 않음).
+export async function listSecurity(db: Db = getDb()): Promise<Map<number, UserSecurity>> {
+  try {
+    const rows = await db.select().from(userSecurity);
+    return new Map(rows.map((r) => [r.userId, r]));
+  } catch (e) {
+    if (isMissingTable(e)) return new Map();
+    throw e;
+  }
+}
+
 async function guard<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
