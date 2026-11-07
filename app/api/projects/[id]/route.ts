@@ -4,8 +4,9 @@ import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { projects, bomItems } from "@/lib/schema";
-import { getMaterials, getLaborRates, getPumsem, getRateSettings, getProjectBom, getProjectOwned } from "@/lib/estimateData";
-import { computeAll, type Discipline } from "@/lib/calc";
+import { getProjectOwned } from "@/lib/estimateData";
+import { computeProject } from "@/lib/projectCompute";
+import { listClients } from "@/lib/clients";
 
 export const runtime = "nodejs";
 
@@ -17,18 +18,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const project = await getProjectOwned(user.id, id);
   if (!project) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
-  const discipline = project.discipline as Discipline;
+  const { materials: mats, laborRates: labor, bom, meta, result } = await computeProject(project);
+  const clientList = await listClients(user.id);
 
-  const [mats, labor, pum, rates, bom] = await Promise.all([
-    getMaterials(user.id, discipline),
-    getLaborRates(user.id, discipline),
-    getPumsem(user.id, discipline),
-    getRateSettings(user.id, discipline),
-    getProjectBom(id),
-  ]);
-  const result = computeAll(mats, pum, labor, rates, bom);
-
-  return NextResponse.json({ project, materials: mats, laborRates: labor, bom, result });
+  return NextResponse.json({
+    project, materials: mats, laborRates: labor, bom, result,
+    meta, clients: clientList.map((c) => ({ id: c.id, name: c.name })),
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

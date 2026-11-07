@@ -3,14 +3,23 @@ import { Fragment, useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fmt, DISCIPLINE_LABELS } from "@/lib/calc";
-import type { ComputeResult, Material, BomItem, Discipline } from "@/lib/calc";
+import type { ComputeResult, Material, BomItem, Discipline, Surcharge } from "@/lib/calc";
+import SettingsPanel from "./SettingsPanel";
+import SharePanel from "./SharePanel";
+import QuickAdd from "./QuickAdd";
+import FixLabor from "./FixLabor";
 
 type ProjectData = {
   project: { id: number; name: string; discipline: Discipline };
   materials: Material[];
+  laborRates: Array<{ code: string; name: string; rate: number }>;
   bom: BomItem[];
   result: ComputeResult;
+  meta: { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string };
+  clients: Array<{ id: number; name: string }>;
 };
+
+const STATUS_LABEL: Record<string, string> = { draft: "작성 중", submitted: "제출", won: "수주", lost: "실주" };
 
 export default function EstimateDetailPage() {
   const params = useParams<{ id: string }>();
@@ -74,10 +83,12 @@ export default function EstimateDetailPage() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!data) return <p className="text-sm text-gray-400">불러오는 중...</p>;
 
-  const { project, materials, bom, result } = data;
+  const { project, materials, bom, result, laborRates, meta, clients } = data;
   const matById = new Map(materials.map((m) => [m.id, m]));
   // 품셈(공수)이 없어 노무비가 0으로 계산되는 품목 — 사용자가 "누락"과 "의도된 0"을 구분할 수 있도록 안내합니다.
   const noLaborItems = result.groupResults.flatMap((g) => g.items).filter((i) => i.neededLabor === 0 && i.qty > 0);
+  const noLaborUnique = Array.from(new Map(noLaborItems.map((i) => [i.materialId, i])).values());
+  const groupNames = Array.from(new Set(bom.map((b) => b.groupName)));
 
   return (
     <div className="space-y-5">
@@ -89,6 +100,9 @@ export default function EstimateDetailPage() {
             <span className="ml-1 text-[10px] font-medium text-[#1f6f54] bg-[#e3efe8] rounded-full px-2 py-0.5 align-middle">
               {DISCIPLINE_LABELS[project.discipline] ?? project.discipline}
             </span>
+            {meta.status !== "draft" && (
+              <span className="ml-1 text-[10px] font-medium text-blue-700 bg-blue-50 rounded-full px-2 py-0.5 align-middle">{STATUS_LABEL[meta.status] ?? meta.status}</span>
+            )}
           </h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
@@ -105,6 +119,12 @@ export default function EstimateDetailPage() {
             📐 도면으로 물량 가져오기
           </Link>
           <Link
+            href={`/app/estimate/${projectId}/versions`}
+            className="text-xs bg-white border rounded-lg px-3 py-1.5 font-semibold"
+          >
+            🕘 버전 이력
+          </Link>
+          <Link
             href={`/app/estimate/${projectId}/print`}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
           >
@@ -119,6 +139,9 @@ export default function EstimateDetailPage() {
           <button onClick={removeProject} className="text-xs text-red-600 underline">삭제</button>
         </div>
       </div>
+
+      <SharePanel projectId={projectId} />
+      <SettingsPanel key={JSON.stringify(meta)} projectId={projectId} meta={meta} clients={clients} groups={groupNames} onSaved={load} />
 
       {/* BOM 입력 */}
       <section className="bg-white border rounded-xl p-4">
@@ -183,17 +206,19 @@ export default function EstimateDetailPage() {
           <button disabled={busy} className="bg-black text-white rounded-lg px-3 py-1.5 text-xs font-semibold">추가</button>
         </form>
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        <QuickAdd projectId={projectId} laborRates={laborRates} defaultGroup={newGroup} onAdded={load} />
       </section>
 
       {/* 내역서 */}
       <section className="bg-white border rounded-xl p-4">
         <h2 className="text-sm font-bold mb-3">내역서 <span className="text-[10px] bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 ml-1">자동산출</span></h2>
         {noLaborItems.length > 0 && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
             {noLaborItems.length}개 품목은 표준품셈(공수)이 등록되어 있지 않아 <b>재료비만 반영</b>되고 노무비는 0원으로 계산됩니다
             ({noLaborItems.slice(0, 3).map((i) => i.name).join(", ")}{noLaborItems.length > 3 ? " 등" : ""}).
-            설치 노무가 필요한 품목이면 &lsquo;표준품셈&rsquo; 탭에서 해당 자재의 공수를 추가하면 자동으로 반영됩니다.
-          </p>
+            설치 노무가 필요한 품목이면 아래에서 바로 공수를 입력하세요(표준품셈에 저장됩니다).
+            <FixLabor items={noLaborUnique} laborRates={laborRates} onSaved={load} />
+          </div>
         )}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -241,6 +266,13 @@ export default function EstimateDetailPage() {
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 pr-2 text-right">{fmt(g.laborAmt)}</td>
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 text-right">{fmt(g.laborAmt)}</td>
                   </tr>
+                  {g.laborSurcharge !== 0 && (
+                    <tr className="text-gray-400 italic">
+                      <td className="py-1.5 pr-2">노무비 할증</td><td className="py-1.5 pr-2 text-right">1</td>
+                      <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 pr-2 text-right">{fmt(g.laborSurcharge)}</td>
+                      <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 text-right">{fmt(g.laborSurcharge)}</td>
+                    </tr>
+                  )}
                   <tr className="text-gray-400 italic">
                     <td className="py-1.5 pr-2">공구손료</td><td className="py-1.5 pr-2 text-right">1</td>
                     <td className="py-1.5 pr-2 text-right">0</td><td className="py-1.5 pr-2 text-right">0</td>

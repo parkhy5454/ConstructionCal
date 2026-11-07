@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getCurrentUser } from "@/lib/currentUser";
-import { getMaterials, getLaborRates, getPumsem, getRateSettings, getProjectBom, getProjectOwned } from "@/lib/estimateData";
-import { computeAll, type Discipline } from "@/lib/calc";
+import { getProjectOwned } from "@/lib/estimateData";
+import { computeProject } from "@/lib/projectCompute";
 
 export const runtime = "nodejs";
 
@@ -29,16 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const project = await getProjectOwned(user.id, id);
   if (!project) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
-  const discipline = project.discipline as Discipline;
-
-  const [mats, labor, pum, rates, bom] = await Promise.all([
-    getMaterials(user.id, discipline),
-    getLaborRates(user.id, discipline),
-    getPumsem(user.id, discipline),
-    getRateSettings(user.id, discipline),
-    getProjectBom(id),
-  ]);
-  const result = computeAll(mats, pum, labor, rates, bom);
+  const { materials: mats, bom, result } = await computeProject(project);
   const matById = new Map(mats.map((m) => [m.id, m]));
 
   const wb = new ExcelJS.Workbook();
@@ -98,6 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       ["배관 부속재", "식", 1, g.accessory, 0, 0],
       ["소모 잡자재", "식", 1, g.consumable, 0, 0],
       ["노무비 (공수)", "인", Number(g.laborHeadcount.toFixed(2)), 0, g.laborAmt, 0],
+      ...(g.laborSurcharge !== 0 ? [["노무비 할증", "식", 1, 0, g.laborSurcharge, 0] as [string, string, number, number, number, number]] : []),
       ["공구손료", "식", 1, 0, 0, g.toolLoss],
     ];
     extraRows.forEach(([name, unit, qty, mat, lab, exp]) => {

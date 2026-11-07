@@ -50,6 +50,13 @@
       "when": 1794026529155,
       "tag": "0006_smart_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794028404493,
+      "tag": "0007_adorable_iron_fist",
+      "breakpoints": true
     }
   ]
 }

@@ -60,6 +60,53 @@ export const activeSessions = pgTable("active_sessions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------- 견적서 부가 정보 / 거래처 / 버전 이력 / 공유 링크 (모두 새 테이블: 기존 테이블을 건드리지 않음) ----------
+
+// 견적서별 부가 설정: 할증(JSON), 진행 상태, 거래처, 메모. 행이 없으면 기본값으로 간주.
+export const projectMeta = pgTable("project_meta", {
+  projectId: integer("project_id").primaryKey(),
+  surcharges: text("surcharges"), // JSON: Surcharge[]
+  status: varchar("status", { length: 12 }).notNull().default("draft"), // draft | submitted | won | lost
+  clientId: integer("client_id"),
+  memo: text("memo"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const clients = pgTable("clients", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  contact: varchar("contact", { length: 80 }),
+  phone: varchar("phone", { length: 40 }),
+  email: varchar("email", { length: 255 }),
+  address: varchar("address", { length: 255 }),
+  memo: text("memo"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 견적서 시점 저장본(BOM + 할증 + 합계 스냅샷, JSON)
+export const projectVersions = pgTable("project_versions", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  userId: integer("user_id").notNull(),
+  label: varchar("label", { length: 80 }).notNull(),
+  snapshot: text("snapshot").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 읽기 전용 공유 링크. 토큰 원문은 만든 직후 한 번만 보여주고 DB에는 SHA-256 해시만 저장합니다.
+export const shareLinks = pgTable("share_links", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  userId: integer("user_id").notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  viewCount: integer("view_count").notNull().default(0),
+  lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 구독 상태: 무료 체험 종료일과 유료 이용 만료일. 결제 연동 전에는 관리자가 paid_until을 직접 연장합니다.
 export const subscriptions = pgTable("subscriptions", {
   userId: integer("user_id").primaryKey(),

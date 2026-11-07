@@ -84,6 +84,15 @@ export function computeIlwidaega(
   });
 }
 
+// 할증·보정: 현장 조건(고소작업·협소·야간 등)에 따라 노무비에 가산하는 비율. group이 null이면 전체 공종에 적용.
+export type Surcharge = { id: string; label: string; percent: number; group: string | null };
+
+export function surchargePercentFor(group: string, surcharges: Surcharge[] | undefined): number {
+  if (!surcharges || surcharges.length === 0) return 0;
+  const sum = surcharges.reduce((s, x) => (x.group == null || x.group === group ? s + x.percent : s), 0);
+  return Math.max(-100, sum); // 노무비가 음수가 되지 않도록 -100%까지만
+}
+
 export type GroupResult = {
   g: string;
   items: Array<{
@@ -98,7 +107,8 @@ export type GroupResult = {
   accessory: number;
   consumable: number;
   laborHeadcount: number;
-  laborAmt: number;
+  laborAmt: number; // 할증 전 노무비
+  laborSurcharge: number; // 할증으로 가산된 노무비(없으면 0)
   toolLoss: number;
   matTotal: number;
   laborTotal: number;
@@ -132,7 +142,8 @@ export function computeAll(
   pumsemRows: Pumsem[],
   laborRates: LaborRate[],
   rates: RateSettings,
-  bom: BomItem[]
+  bom: BomItem[],
+  surcharges?: Surcharge[]
 ): ComputeResult {
   const ild = computeIlwidaega(materials, pumsemRows, laborRates);
   const matMap = new Map(materials.map((m) => [m.id, m]));
@@ -184,14 +195,15 @@ export function computeAll(
       return s + perUnitLabor * b.qty;
     }, 0);
     const laborHeadcount = items.reduce((s, i) => s + i.neededLabor, 0);
-    const toolLoss = laborAmt * rates.toolLoss;
+    const laborSurcharge = (laborAmt * surchargePercentFor(g, surcharges)) / 100;
+    const toolLoss = (laborAmt + laborSurcharge) * rates.toolLoss;
 
     const matTotal = items.reduce((s, i) => s + i.matAmt, 0) + accessory + consumable;
-    const laborTotal = laborAmt;
+    const laborTotal = laborAmt + laborSurcharge;
     const expenseTotal = toolLoss;
     const groupTotal = matTotal + laborTotal + expenseTotal;
 
-    return { g, items, accessory, consumable, laborHeadcount, laborAmt, toolLoss, matTotal, laborTotal, expenseTotal, groupTotal };
+    return { g, items, accessory, consumable, laborHeadcount, laborAmt, laborSurcharge, toolLoss, matTotal, laborTotal, expenseTotal, groupTotal };
   });
 
   const sumMat = groupResults.reduce((s, g) => s + g.matTotal, 0);
