@@ -1,0 +1,43 @@
+import fs from "fs";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import * as schema from "../lib/schema";
+import { issueSid, sidIsCurrent, releaseSid } from "../lib/sessionLimit";
+let fails = 0;
+const ok = (c: boolean, m: string) => { console.log(`${c ? "OK " : "XX "} ${m}`); if (!c) fails++; };
+async function main() {
+  const pg = new PGlite();
+  const db: any = drizzle(pg, { schema });
+  // 마이그레이션 전: 테이블 없음 → 제한 없이 동작
+  const pre = await issueSid(1, db);
+  ok(pre.sid === undefined && !pre.replaced, "테이블 없으면 sid 미발급(기능 꺼짐)");
+  ok(await sidIsCurrent(1, undefined, db), "테이블 없으면 검사 통과");
+  const sql = fs.readFileSync("drizzle/0005_massive_silver_surfer.sql", "utf8");
+  await pg.exec(sql.replace(/--> statement-breakpoint/g, ""));
+  ok(await sidIsCurrent(1, undefined, db), "행 없고 sid 없는 옛 토큰은 통과");
+  ok(!(await sidIsCurrent(1, "abc", db)), "행 없는데 sid 있는 토큰은 거부");
+  const a = await issueSid(1, db);
+  ok(!!a.sid && a.sid.length === 32 && !a.replaced, "첫 로그인: sid 발급, replaced=false");
+  ok(await sidIsCurrent(1, a.sid, db), "기기 A 유효");
+  ok(!(await sidIsCurrent(1, undefined, db)), "로그인 후 옛(sid 없는) 토큰은 거부");
+  const b = await issueSid(1, db);
+  ok(b.replaced && b.sid !== a.sid, "기기 B 로그인: replaced=true");
+  ok(await sidIsCurrent(1, b.sid, db), "기기 B 유효");
+  ok(!(await sidIsCurrent(1, a.sid, db)), "기기 A는 로그아웃됨");
+  const o = await issueSid(2, db);
+  ok(await sidIsCurrent(2, o.sid, db) && await sidIsCurrent(1, b.sid, db), "다른 사용자는 서로 영향 없음");
+  await releaseSid(1, a.sid, db);
+  ok(await sidIsCurrent(1, b.sid, db), "이미 밀려난 A의 로그아웃은 B를 끊지 않음");
+  await releaseSid(1, b.sid, db);
+  const c = await issueSid(1, db);
+  ok(!c.replaced, "B 로그아웃 후 재로그인은 replaced=false");
+  const rs = await Promise.all([issueSid(3, db), issueSid(3, db), issueSid(3, db)]);
+  const valid = (await Promise.all(rs.map((r) => sidIsCurrent(3, r.sid, db)))).filter(Boolean).length;
+  ok(valid === 1, `동시 로그인 3건 중 정확히 1개만 유효 (${valid})`);
+  process.env.SINGLE_SESSION = "false";
+  const off = await issueSid(4, db);
+  ok(off.sid === undefined && await sidIsCurrent(4, "x", db), "SINGLE_SESSION=false면 제한 해제");
+  console.log(fails ? `FAIL ${fails}` : "ALL PASS");
+  process.exit(fails ? 1 : 0);
+}
+main();
