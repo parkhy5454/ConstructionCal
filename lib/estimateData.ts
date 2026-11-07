@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { materials, laborRates, pumsem, rateSettings, projects, bomItems, dxfMappings } from "./schema";
 import {
@@ -217,7 +217,8 @@ export async function getDxfMappings(userId: number, discipline: Discipline): Pr
   const rows = await db
     .select()
     .from(dxfMappings)
-    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.discipline, discipline)));
+    // "excel" 유형은 엑셀 내역서 매칭 기억(아래 getExcelMappings)이므로 도면 매핑에서는 제외
+    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.discipline, discipline), ne(dxfMappings.matchType, "excel")));
   return rows.map((r) => ({
     id: r.id,
     matchType: r.matchType as "layer" | "block",
@@ -226,6 +227,48 @@ export async function getDxfMappings(userId: number, discipline: Discipline): Pr
     groupName: r.groupName,
     unitScale: num(r.unitScale),
   }));
+}
+
+// ---------- 엑셀 내역서 매칭 기억 (별도 테이블 없이 dxf_mappings에 matchType="excel"로 저장) ----------
+// matchName = 정규화한 `품명|규격` 키(lib/excelMatch.matchKey). 다음 엑셀부터 같은 표기는 자동 매칭됩니다.
+
+export async function getExcelMappings(userId: number, discipline: Discipline): Promise<Map<string, number>> {
+  const db = getDb();
+  const rows = await db
+    .select({ matchName: dxfMappings.matchName, materialId: dxfMappings.materialId })
+    .from(dxfMappings)
+    .where(and(eq(dxfMappings.userId, userId), eq(dxfMappings.discipline, discipline), eq(dxfMappings.matchType, "excel")));
+  return new Map(rows.map((r) => [r.matchName, r.materialId]));
+}
+
+export async function upsertExcelMappings(
+  userId: number,
+  discipline: Discipline,
+  items: Array<{ key: string; materialId: number; groupName: string }>
+) {
+  // 한 INSERT 안에서 같은 키가 중복되면 ON CONFLICT가 실패하므로 키 기준으로 먼저 합칩니다.
+  const byKey = new Map<string, { key: string; materialId: number; groupName: string }>();
+  for (const it of items) if (it.key) byKey.set(it.key, it);
+  const values = Array.from(byKey.values()).map((it) => ({
+    userId,
+    discipline,
+    matchType: "excel",
+    matchName: it.key,
+    materialId: it.materialId,
+    groupName: it.groupName,
+    unitScale: "1",
+  }));
+  if (values.length === 0) return;
+  const db = getDb();
+  for (let i = 0; i < values.length; i += 500) {
+    await db
+      .insert(dxfMappings)
+      .values(values.slice(i, i + 500))
+      .onConflictDoUpdate({
+        target: [dxfMappings.userId, dxfMappings.discipline, dxfMappings.matchType, dxfMappings.matchName],
+        set: { materialId: sql`excluded.material_id`, groupName: sql`excluded.group_name` },
+      });
+  }
 }
 
 export async function upsertDxfMapping(

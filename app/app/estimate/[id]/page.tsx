@@ -89,7 +89,13 @@ export default function EstimateDetailPage() {
             </span>
           </h1>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Link
+            href={`/app/estimate/${projectId}/excel`}
+            className="text-xs bg-[#1f6f54] text-white rounded-lg px-3 py-1.5 font-semibold"
+          >
+            📊 엑셀 내역서로 물량 가져오기
+          </Link>
           <Link
             href={`/app/estimate/${projectId}/dxf`}
             className="text-xs bg-[#1f6f54] text-white rounded-lg px-3 py-1.5 font-semibold"
