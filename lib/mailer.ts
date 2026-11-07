@@ -50,3 +50,15 @@ export function verificationEmail(name: string, link: string) {
 <p style="color:#888;font-size:12px">본인이 가입하지 않았다면 이 메일을 무시하세요.</p></div>`,
   };
 }
+
+// 일반 안내 메일(체험 종료 알림, 새 환경 로그인 알림 등). 제목/본문 줄/버튼을 받아 간단한 HTML을 만듭니다.
+export function noticeEmail(opts: { subject: string; name: string; lines: string[]; cta?: { label: string; url: string }; footer?: string }) {
+  const text = `${opts.name}님,\n\n${opts.lines.join("\n")}${opts.cta ? `\n\n${opts.cta.label}: ${opts.cta.url}` : ""}${opts.footer ? `\n\n${opts.footer}` : ""}`;
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:auto;padding:24px">
+<h2 style="margin:0 0 12px">${esc(opts.subject.replace(/^\[ConCal\]\s*/, ""))}</h2>
+<p>${esc(opts.name)}님,</p>
+${opts.lines.map((l) => `<p style="margin:8px 0">${esc(l)}</p>`).join("")}
+${opts.cta ? `<p style="margin:24px 0"><a href="${esc(opts.cta.url)}" style="background:#1f6f54;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${esc(opts.cta.label)}</a></p>` : ""}
+${opts.footer ? `<p style="color:#888;font-size:12px">${esc(opts.footer)}</p>` : ""}</div>`;
+  return { subject: opts.subject, text, html };
+}

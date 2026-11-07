@@ -18,6 +18,13 @@ type AdminUser = {
   subUntil: string | null;
   subDaysLeft: number | null;
   subStarted: boolean; // 체험/구독 행이 있는가(첫 이용 전이면 false)
+  lastLoginAt: string | null;
+  ips7: number;
+  ips30: number;
+};
+type Overview = {
+  funnel: Record<string, number | boolean>;
+  inquiries: Array<{ id: number; name: string; email: string; message: string; status: string; createdAt: string }>;
 };
 
 const statusLabel: Record<AdminUser["status"], string> = {
@@ -37,6 +44,8 @@ export default function AdminClient({ selfId }: { selfId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [trialOn, setTrialOn] = useState(false);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +54,8 @@ export default function AdminClient({ selfId }: { selfId: number }) {
     if (res.ok) { setUsers(data.users); setTrialOn((data.trialDays ?? 0) > 0); }
     else setError(data.error ?? "불러오기 실패");
     setLoading(false);
+    const ov = await fetch("/api/admin/overview");
+    if (ov.ok) setOverview(await ov.json());
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -59,6 +70,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "처리 실패"); return; }
+      if (data.referralReward?.days) setNotice(`추천 보상으로 추천인과 가입자 모두 ${data.referralReward.days}일이 연장되었습니다.`);
       await load();
     } finally {
       setBusyId(null);
@@ -100,6 +112,11 @@ export default function AdminClient({ selfId }: { selfId: number }) {
       </div>
       <h1 className="text-xl font-bold mb-6">관리자 · 가입자 관리</h1>
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      {notice && <p className="text-sm text-green-700 mb-3">{notice}</p>}
+      {overview && <OverviewPanel ov={overview} onDone={async (id, status) => {
+        await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inquiryId: id, status }) });
+        load();
+      }} />}
       {loading ? (
         <p className="text-sm text-gray-500">불러오는 중...</p>
       ) : (
@@ -122,6 +139,14 @@ export default function AdminClient({ selfId }: { selfId: number }) {
                   <td className="px-3 py-2">
                     <div className="font-medium">{u.name}</div>
                     <div className="text-gray-400">{u.email}</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">
+                      {u.lastLoginAt ? `최근 접속 ${new Date(u.lastLoginAt).toLocaleDateString("ko-KR")}` : "접속 기록 없음"}
+                      {u.ips7 > 0 && (
+                        <span className={u.ips7 >= 5 ? "text-red-600 font-semibold" : ""} title="7일간 서로 다른 접속 IP 수. 모바일 데이터·와이파이 전환으로도 늘어나므로 공유의 증거가 아니라 참고 신호입니다.">
+                          {" "}· IP {u.ips7}개(7일)/{u.ips30}개(30일)
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     {u.id === selfId ? (
@@ -193,5 +218,45 @@ export default function AdminClient({ selfId }: { selfId: number }) {
         비밀번호 재설정 시 해당 사용자는 다음 로그인 때 반드시 새 비밀번호로 바꿔야 합니다.
       </p>
     </main>
+  );
+}
+
+const FUNNEL_LABELS: Array<[string, string]> = [
+  ["signups", "가입(전체)"], ["signups7d", "최근 7일 가입"], ["signups30d", "최근 30일 가입"], ["pending", "승인 대기"],
+  ["approved", "승인됨"], ["loggedIn", "접속한 적 있음"], ["madeEstimate", "견적 직접 작성"],
+];
+const SUB_LABELS: Array<[string, string]> = [["trial", "체험 중"], ["paid", "유료"], ["expired", "만료"], ["notStarted", "체험 시작 전"]];
+
+function OverviewPanel({ ov, onDone }: { ov: Overview; onDone: (id: number, status: "new" | "done") => void }) {
+  const f = ov.funnel;
+  const items = [...FUNNEL_LABELS, ...(f.subscriptionOn ? SUB_LABELS : [])];
+  const open = ov.inquiries.filter((i) => i.status === "new");
+  return (
+    <section className="mb-6 space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {items.map(([k, label]) => (
+          <div key={k} className="border rounded-lg px-3 py-2">
+            <div className="text-lg font-bold">{Number(f[k] ?? 0).toLocaleString("ko-KR")}</div>
+            <div className="text-[11px] text-gray-500">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="border rounded-xl">
+        <div className="px-3 py-2 border-b text-sm font-semibold">문의 {open.length > 0 && <span className="text-red-600">({open.length}건 미처리)</span>}</div>
+        {ov.inquiries.length === 0 ? <p className="px-3 py-3 text-xs text-gray-400">접수된 문의가 없습니다.</p> : (
+          <ul className="divide-y">
+            {ov.inquiries.map((i) => (
+              <li key={i.id} className={`px-3 py-2 text-xs ${i.status === "done" ? "opacity-50" : ""}`}>
+                <div className="flex justify-between gap-2">
+                  <span><b>{i.name}</b> · <a className="underline" href={`mailto:${i.email}`}>{i.email}</a> · {new Date(i.createdAt).toLocaleString("ko-KR")}</span>
+                  <button onClick={() => onDone(i.id, i.status === "done" ? "new" : "done")} className="underline shrink-0">{i.status === "done" ? "다시 열기" : "처리 완료"}</button>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap break-words text-gray-700">{i.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }

@@ -5,6 +5,7 @@ import { users } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
 import { listSecurity } from "@/lib/security";
 import { listSubscriptions, computeStatus, trialDays } from "@/lib/subscription";
+import { loginStats } from "@/lib/loginEvents";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
   // 2FA 사용 여부 / 이메일 인증 여부 (emailVerified null = 인증 대상 아님: 기존 가입자 등)
   const sec = await listSecurity();
   const subs = await listSubscriptions();
+  const logins = await loginStats();
   const trialOn = trialDays() > 0;
   const enriched = rows.map((u) => {
     const s = sec.get(u.id);
@@ -43,6 +45,9 @@ export async function GET(req: NextRequest) {
       subUntil: info.until ? info.until.toISOString() : null,
       subDaysLeft: info.daysLeft,
       subStarted: subs.has(u.id),
+      lastLoginAt: logins.get(u.id)?.lastAt ?? null,
+      ips7: logins.get(u.id)?.ips7 ?? 0,
+      ips30: logins.get(u.id)?.ips30 ?? 0,
     };
   });
 

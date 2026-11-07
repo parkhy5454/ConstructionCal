@@ -5,6 +5,7 @@ import { users, adminActions } from "@/lib/schema";
 import { requireAdmin } from "@/lib/currentUser";
 import { hashPassword, validatePasswordPolicy, validateEmail } from "@/lib/auth";
 import { extendPaid } from "@/lib/subscription";
+import { grantReferralReward } from "@/lib/referral";
 import { isMissingTable } from "@/lib/security";
 import { disableTotp, markEmailVerified, SecurityTablesMissingError } from "@/lib/security";
 
@@ -128,6 +129,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await db.update(users).set(updates).where(eq(users.id, targetId));
   }
 
+  // 승인으로 바뀌는 순간, 추천받아 가입한 계정이면 추천 보상(양쪽에 구독 기간 추가)을 지급합니다.
+  let reward: Awaited<ReturnType<typeof grantReferralReward>> | null = null;
+  if (updates.status === "approved" && target.status !== "approved") {
+    try {
+      reward = await grantReferralReward({ id: target.id, referredBy: target.referredBy }, admin.id);
+    } catch (e) {
+      console.error("[referral] 보상 지급 실패:", e instanceof Error ? e.message : e);
+    }
+  }
+
   for (const l of logs) {
     await db.insert(adminActions).values({
       adminId: admin.id,
@@ -137,5 +148,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, referralReward: reward?.granted ? { days: reward.days } : null });
 }

@@ -1,4 +1,5 @@
 import { issueSid } from "@/lib/sessionLimit";
+import { afterLogin } from "@/lib/loginNotice";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { sid, replaced } = await issueSid(user.id);
+  await afterLogin(user, req, replaced);
   const token = signSession({ uid: user.id, role: user.role, status: user.status, pv: passwordFingerprint(user.passwordHash), sid });
   const res = NextResponse.json({
     user: {
