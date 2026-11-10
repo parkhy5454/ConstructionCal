@@ -18,9 +18,9 @@ export default function PumsemPage() {
 
   const load = useCallback(async (d: Discipline) => {
     setLoading(true);
-    const [mRes, lRes, pRes] = await Promise.all([
-      fetch(`/api/materials?discipline=${d}`), fetch(`/api/labor-rates?discipline=${d}`), fetch(`/api/pumsem?discipline=${d}`),
-    ]);
+    // 처음 여는 업종은 자재를 먼저 불러 기본 데이터가 준비된 뒤 노임·품셈을 읽습니다(동시 시드 충돌 방지).
+    const mRes = await fetch(`/api/materials?discipline=${d}`);
+    const [lRes, pRes] = await Promise.all([fetch(`/api/labor-rates?discipline=${d}`), fetch(`/api/pumsem?discipline=${d}`)]);
     const [mData, lData, pData] = await Promise.all([mRes.json(), lRes.json(), pRes.json()]);
     setMaterials(mData.materials ?? []);
     setLaborRates(lData.laborRates ?? []);

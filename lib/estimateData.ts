@@ -28,7 +28,19 @@ const matKey = (name: string, spec: string) => `${name}|${spec}`;
 // 실제 노무비가 반영된 일위대가 계산이 가능하며, 업종 첫 접근 시 예시 견적서 1건도 만들어 줍니다.
 // (실제 서비스에서는 이 예시값을 사용자가 자신이 구매한 물가자료/표준품셈으로 교체합니다.)
 // 그 외 업종은 법정 비율의 출발값만 넣어두고, 자재/품셈은 사용자가 직접 채우도록 비워둡니다.
-export async function ensureSeeded(userId: number, discipline: Discipline = "electrical") {
+// 한 화면이 자재·노임·품셈 API를 동시에 부르면 같은 업종을 동시에 시드하려다 충돌(유니크 위반 500)하거나
+// 일부 목록이 비어 보일 수 있어, 같은 서버 인스턴스에서는 사용자·업종별로 시드를 한 번에 하나만 실행합니다.
+const seeding = new Map<string, Promise<void>>();
+export function ensureSeeded(userId: number, discipline: Discipline = "electrical"): Promise<void> {
+  const key = `${userId}:${discipline}`;
+  const running = seeding.get(key);
+  if (running) return running;
+  const p = seedOnce(userId, discipline).finally(() => seeding.delete(key));
+  seeding.set(key, p);
+  return p;
+}
+
+async function seedOnce(userId: number, discipline: Discipline): Promise<void> {
   const db = getDb();
   const existingRates = await db
     .select()
@@ -36,7 +48,7 @@ export async function ensureSeeded(userId: number, discipline: Discipline = "ele
     .where(and(eq(rateSettings.userId, userId), eq(rateSettings.discipline, discipline)))
     .limit(1);
   if (existingRates.length === 0) {
-    await db.insert(rateSettings).values({ userId, discipline, ...stringifyRates(DEFAULT_RATE_SETTINGS) });
+    await db.insert(rateSettings).values({ userId, discipline, ...stringifyRates(DEFAULT_RATE_SETTINGS) }).onConflictDoNothing();
   }
 
   if (discipline === "electrical") {
@@ -44,7 +56,7 @@ export async function ensureSeeded(userId: number, discipline: Discipline = "ele
 
     await db.insert(laborRates).values(
       DEFAULT_LABOR_RATES.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
-    );
+    ).onConflictDoNothing();
 
     const insertedMaterials = await db
       .insert(materials)
@@ -57,7 +69,7 @@ export async function ensureSeeded(userId: number, discipline: Discipline = "ele
       const materialId = matIdByKey.get(matKey(p.name, p.spec));
       return materialId ? { userId, materialId, laborCode: p.laborCode, factor: String(p.factor) } : null;
     }).filter((r): r is NonNullable<typeof r> => r !== null);
-    if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows);
+    if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows).onConflictDoNothing();
 
     const [project] = await db.insert(projects).values({ userId, discipline, name: "예시 견적서" }).returning();
     const bomRows = DEFAULT_BOM.map((b, idx) => {
@@ -98,7 +110,7 @@ export async function ensureSeeded(userId: number, discipline: Discipline = "ele
     if (existingLabor.length === 0) {
       await db.insert(laborRates).values(
         laborDefaults.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
-      );
+      ).onConflictDoNothing();
     }
   }
 
@@ -119,7 +131,7 @@ export async function ensureSeeded(userId: number, discipline: Discipline = "ele
           return materialId ? { userId, materialId, laborCode: p.laborCode, factor: String(p.factor) } : null;
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
-      if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows);
+      if (pumsemRows.length > 0) await db.insert(pumsem).values(pumsemRows).onConflictDoNothing();
     }
   }
 
