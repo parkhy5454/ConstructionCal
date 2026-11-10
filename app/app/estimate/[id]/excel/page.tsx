@@ -123,6 +123,7 @@ export default function ExcelImportPage() {
         setError(d.error ?? "분석에 실패했습니다.");
         return;
       }
+      if (typeof d.rawText === "string" && d.rawText) setPasteText(d.rawText);
       await processResult(d);
     } catch {
       setError("네트워크 오류가 발생했습니다.");
@@ -295,7 +296,7 @@ export default function ExcelImportPage() {
       </div>
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
-        <FileDropZone accept=".xlsx" label="엑셀 내역서·물량 산출표(.xlsx) 올리기" disabled={loading || submitting} onFile={(f) => handleFile(f)} />
+        <FileDropZone accept=".xlsx,.pdf" label="엑셀·PDF 내역서/수량집계표(.xlsx, .pdf) 올리기" disabled={loading || submitting} onFile={(f) => handleFile(f)} />
         <label className="flex items-start gap-2 text-xs text-gray-600">
           <input type="checkbox" className="mt-0.5" checked={oneClick} onChange={(e) => setOneClick(e.target.checked)} />
           <span><b>확인 없이 한 번에 반영</b> — 자동으로 일치한 행은 그대로 쓰고, 일치하지 않는 행은 새 자재로 등록합니다(원본 단가, 없으면 0원). 견적서가 비어 있을 때만 바로 반영되며, 반영 후 견적서의 검토 알림에서 0원 단가를 확인하세요.</span>
@@ -303,7 +304,7 @@ export default function ExcelImportPage() {
         {fileName && (
           <p className="text-xs text-gray-400">
             {fileName}
-            {file && !showMapper && <button onClick={() => setShowMapper(true)} className="ml-3 underline text-gray-600">열 직접 지정해서 다시 읽기</button>}
+            {file && !showMapper && /\.xlsx$/i.test(file.name) && <button onClick={() => setShowMapper(true)} className="ml-3 underline text-gray-600">열 직접 지정해서 다시 읽기</button>}
           </p>
         )}
         {loading && <p className="text-sm text-gray-400">분석 중...</p>}

@@ -2,6 +2,7 @@ import { subscriptionBlock } from "@/lib/subscription";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getProjectOwned, getMaterials, getExcelMappings, getProjectBom } from "@/lib/estimateData";
+import { parsePdfBoq } from "@/lib/pdfImport";
 import { parseExcelBoq, previewExcel, type ColumnMapping } from "@/lib/excelImport";
 import { matchRows } from "@/lib/excelMatch";
 import type { Discipline } from "@/lib/calc";
@@ -36,8 +37,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       error: "구형 .xls 파일은 읽을 수 없습니다. 엑셀에서 '다른 이름으로 저장 → Excel 통합 문서(.xlsx)'로 저장한 뒤 올려주세요.",
     }, { status: 400 });
   }
-  if (!name.endsWith(".xlsx")) {
-    return NextResponse.json({ error: ".xlsx 엑셀 파일만 지원합니다." }, { status: 400 });
+  const isPdf = name.endsWith(".pdf");
+  if (!name.endsWith(".xlsx") && !isPdf) {
+    return NextResponse.json({ error: ".xlsx 엑셀 또는 글자가 있는 .pdf 파일만 지원합니다." }, { status: 400 });
   }
   if (f.size > MAX_BYTES) {
     return NextResponse.json({ error: "파일이 너무 큽니다(4MB 이하). 필요한 시트만 남겨 다시 저장해주세요." }, { status: 400 });
@@ -63,14 +65,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   let parsed;
+  let rawText = "";
   try {
-    if (form?.get("mode") === "preview") {
+    if (isPdf) {
+      const p = await parsePdfBoq(await f.arrayBuffer());
+      parsed = p;
+      rawText = p.rawText.slice(0, 200_000);
+    } else if (form?.get("mode") === "preview") {
       return NextResponse.json({ preview: await previewExcel(await f.arrayBuffer()) });
     }
-    parsed = await parseExcelBoq(await f.arrayBuffer(), mapping);
+    else parsed = await parseExcelBoq(await f.arrayBuffer(), mapping);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "알 수 없는 오류";
-    return NextResponse.json({ error: `엑셀 분석에 실패했습니다(암호가 걸렸거나 손상된 파일일 수 있습니다): ${msg}` }, { status: 400 });
+    return NextResponse.json({ error: `${isPdf ? "PDF" : "엑셀"} 분석에 실패했습니다(암호가 걸렸거나 손상된 파일일 수 있습니다): ${msg}` }, { status: 400 });
   }
 
   const [materials, memory, bom] = await Promise.all([
@@ -92,7 +99,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     sheets: parsed.sheets,
     rows,
     warnings: parsed.warnings,
-    needMapping: parsed.sheets.length === 0,
+    needMapping: !isPdf && parsed.sheets.length === 0,
+    rawText: isPdf && parsed.rows.length === 0 ? rawText : undefined,
     existingBomCount: bom.length,
     materials: materials.map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
   });
