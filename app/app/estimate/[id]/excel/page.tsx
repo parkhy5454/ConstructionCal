@@ -246,14 +246,14 @@ export default function ExcelImportPage() {
   const attention = (r: Row) => r.method === "fuzzy" || r.method === "none" || !!unitMismatch(r);
   const shown = inSheets.filter((r) => !onlyAttention || attention(r));
 
-  // 전체 선택: 지금 보이는 행 중 자재가 정해진 행만 포함/해제합니다(자재가 없는 행은 반영할 수 없음).
-  const selectable = shown.filter((r) => r.materialId);
-  const allChecked = selectable.length > 0 && selectable.every((r) => r.include);
+  // 전체 선택: 지금 보이는 모든 행을 포함/해제합니다. 켤 때 매칭 없는 행은 새 자재로 등록되도록 지정합니다(원본 단가, 없으면 0원).
+  const selectable = shown;
+  const allChecked = selectable.length > 0 && selectable.every((r) => r.include && r.materialId);
   const someChecked = selectable.some((r) => r.include);
   const noMatchShown = shown.filter((r) => !r.materialId).length;
   function setAllInclude(on: boolean) {
     const ids = new Set(selectable.map((r) => r.rid));
-    setRows((prev) => prev?.map((r) => (ids.has(r.rid) ? { ...r, include: on } : r)) ?? prev);
+    setRows((prev) => prev?.map((r) => (ids.has(r.rid) ? { ...r, include: on, materialId: on && !r.materialId ? "new" : r.materialId } : r)) ?? prev);
   }
   // 매칭 없는 행을 한꺼번에 새 자재로 등록(원본 단가가 있으면 그 단가, 없으면 0원) — 사용자가 버튼을 눌렀을 때만.
   function registerAllUnmatchedAsNew() {
@@ -381,7 +381,7 @@ export default function ExcelImportPage() {
 
             {noMatchShown > 0 && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-                <span>매칭 없는 행 {noMatchShown}개는 &lsquo;전체&rsquo; 선택에 포함되지 않습니다(자재를 정해야 반영 가능).</span>
+                <span>매칭 없는 행 {noMatchShown}개: &lsquo;전체&rsquo;를 선택하면 새 자재로 등록되어 반영됩니다(원본 단가, 없으면 0원). 직접 자재를 고를 수도 있습니다.</span>
                 <button type="button" onClick={registerAllUnmatchedAsNew} className="underline font-semibold">매칭 없는 행 모두 새 자재로 등록</button>
               </div>
             )}
