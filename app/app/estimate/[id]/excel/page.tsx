@@ -207,6 +207,21 @@ export default function ExcelImportPage() {
   const attention = (r: Row) => r.method === "fuzzy" || r.method === "none" || !!unitMismatch(r);
   const shown = inSheets.filter((r) => !onlyAttention || attention(r));
 
+  // 전체 선택: 지금 보이는 행 중 자재가 정해진 행만 포함/해제합니다(자재가 없는 행은 반영할 수 없음).
+  const selectable = shown.filter((r) => r.materialId);
+  const allChecked = selectable.length > 0 && selectable.every((r) => r.include);
+  const someChecked = selectable.some((r) => r.include);
+  const noMatchShown = shown.filter((r) => !r.materialId).length;
+  function setAllInclude(on: boolean) {
+    const ids = new Set(selectable.map((r) => r.rid));
+    setRows((prev) => prev?.map((r) => (ids.has(r.rid) ? { ...r, include: on } : r)) ?? prev);
+  }
+  // 매칭 없는 행을 한꺼번에 새 자재로 등록(원본 단가가 있으면 그 단가, 없으면 0원) — 사용자가 버튼을 눌렀을 때만.
+  function registerAllUnmatchedAsNew() {
+    const ids = new Set(shown.filter((r) => !r.materialId).map((r) => r.rid));
+    setRows((prev) => prev?.map((r) => (ids.has(r.rid) ? { ...r, materialId: "new", include: true } : r)) ?? prev);
+  }
+
   async function submit() {
     if (!rows) return;
     const items = inSheets.map(rowToItem).filter((x): x is ApplyItem => x !== null);
@@ -313,11 +328,27 @@ export default function ExcelImportPage() {
               </label>
             </div>
 
+            {noMatchShown > 0 && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                <span>매칭 없는 행 {noMatchShown}개는 &lsquo;전체&rsquo; 선택에 포함되지 않습니다(자재를 정해야 반영 가능).</span>
+                <button type="button" onClick={registerAllUnmatchedAsNew} className="underline font-semibold">매칭 없는 행 모두 새 자재로 등록</button>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-gray-50 text-gray-500">
-                    <th className="p-2 text-left">포함</th>
+                    <th className="p-2 text-left">
+                      <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="checkbox" checked={allChecked} disabled={selectable.length === 0}
+                          ref={(el) => { if (el) el.indeterminate = !allChecked && someChecked; }}
+                          onChange={(e) => setAllInclude(e.target.checked)}
+                        />
+                        전체
+                      </label>
+                    </th>
                     <th className="p-2 text-left">원본 품명 / 규격</th>
                     <th className="p-2 text-left">단위</th>
                     <th className="p-2 text-right">수량</th>
