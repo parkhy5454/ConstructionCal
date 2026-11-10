@@ -3,7 +3,8 @@ import { Fragment, useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fmt, DISCIPLINE_LABELS } from "@/lib/calc";
-import type { ComputeResult, Material, BomItem, Discipline, Surcharge } from "@/lib/calc";
+import type { ComputeResult, Material, BomItem, Discipline, Surcharge, RateSettings } from "@/lib/calc";
+import EstimateDocsTabs from "@/components/EstimateDocsTabs";
 import SettingsPanel from "./SettingsPanel";
 import SharePanel from "./SharePanel";
 import QuickAdd from "./QuickAdd";
@@ -19,6 +20,7 @@ type ProjectData = {
   result: ComputeResult;
   meta: { surcharges: Surcharge[]; status: string; clientId: number | null; memo: string; priceBasis: string };
   clients: Array<{ id: number; name: string }>;
+  rates: RateSettings;
 };
 
 const STATUS_LABEL: Record<string, string> = { draft: "작성 중", submitted: "제출", won: "수주", lost: "실주" };
@@ -88,7 +90,17 @@ export default function EstimateDetailPage() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!data) return <p className="text-sm text-gray-400">불러오는 중...</p>;
 
-  const { project, materials, bom, result, laborRates, meta, clients } = data;
+  const { project, materials, bom, result, laborRates, meta, clients, rates } = data;
+  // 엑셀 다운: 저장 화면에서 입력해 둔 공급자 정보가 있으면 갑지에 함께 담습니다(없으면 빈 갑지).
+  function downloadExcel(e: React.MouseEvent<HTMLAnchorElement>) {
+    try {
+      const raw = localStorage.getItem("concal_print_profile");
+      const sup = raw ? JSON.parse(raw).supplier : null;
+      const client = clients.find((c) => c.id === meta.clientId)?.name ?? "";
+      const p = JSON.stringify({ supplier: sup ?? {}, recipient: { client } });
+      e.currentTarget.href = `/api/projects/${projectId}/export?p=${encodeURIComponent(p)}`;
+    } catch {}
+  }
   const matById = new Map(materials.map((m) => [m.id, m]));
   // 품셈(공수)이 없어 노무비가 0으로 계산되는 품목 — 사용자가 "누락"과 "의도된 0"을 구분할 수 있도록 안내합니다.
   const noLaborItems = result.groupResults.flatMap((g) => g.items).filter((i) => i.neededLabor === 0 && i.qty > 0);
@@ -138,6 +150,7 @@ export default function EstimateDetailPage() {
           </Link>
           <a
             href={`/api/projects/${projectId}/export`}
+            onClick={downloadExcel}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
           >
             ⬇ 엑셀 다운
@@ -368,6 +381,14 @@ export default function EstimateDetailPage() {
           </tbody>
         </table>
       </section>
+
+      {/* 제출용 양식 7종(엑셀 양식과 같은 구성) */}
+      {rates && (
+        <EstimateDocsTabs
+          projectId={projectId} projectName={project.name} result={result} materials={materials}
+          laborRates={laborRates} rates={rates} clientName={clients.find((c) => c.id === meta.clientId)?.name}
+        />
+      )}
     </div>
   );
 }
