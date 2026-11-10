@@ -1,4 +1,5 @@
 "use client";
+import FileDropZone from "@/components/FileDropZone";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -97,9 +98,7 @@ export default function ExcelImportPage() {
     return d as { inserted: number; createdMaterials: number };
   }
 
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFile(file: File) {
     setFileName(file.name);
     setError(null);
     setAutoNotice(null);
@@ -227,7 +226,7 @@ export default function ExcelImportPage() {
     <div className="space-y-5">
       <div>
         <Link href={`/app/estimate/${projectId}`} className="text-xs text-gray-400 underline">← 견적서로 돌아가기</Link>
-        <h1 className="text-lg font-bold mt-1">📊 엑셀 내역서로 물량 가져오기</h1>
+        <h1 className="text-lg font-bold mt-1">📊 엑셀 가져오기</h1>
         <p className="text-xs text-gray-500 mt-1">
           기존에 쓰던 엑셀 내역서(<b>.xlsx</b>)를 올리면 품명·규격·단위·수량을 읽어 자재 단가 DB와 자동으로 매칭하고, 일위대가·노무비·간접비·부가세까지 견적서를 자동 산출합니다.
           헤더(품명/규격/단위/수량)는 자동으로 찾고, 소계·합계 행은 건너뛰며, 수량 없는 제목 행은 공종명으로 사용합니다.
@@ -236,7 +235,7 @@ export default function ExcelImportPage() {
       </div>
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
-        <input type="file" accept=".xlsx" onChange={onFileChange} className="text-sm" />
+        <FileDropZone accept=".xlsx" label="엑셀 내역서(.xlsx) 올리기" disabled={loading || submitting} onFile={handleFile} />
         {fileName && <p className="text-xs text-gray-400">{fileName}</p>}
         {loading && <p className="text-sm text-gray-400">분석 중...</p>}
         {submitting && !rows && <p className="text-sm text-gray-400">반영 중...</p>}

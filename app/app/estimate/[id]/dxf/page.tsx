@@ -1,4 +1,5 @@
 "use client";
+import FileDropZone from "@/components/FileDropZone";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -73,9 +74,7 @@ export default function DxfImportPage() {
     return d.inserted as number;
   }
 
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFile(file: File) {
     setFileName(file.name);
     setError(null);
     setAutoNotice(null);
@@ -87,7 +86,7 @@ export default function DxfImportPage() {
     }
     if (lower.endsWith(".pdf")) {
       setRows(null);
-      setError("PDF로 변환된 도면은 레이어·블록 정보가 사라져 물량을 정확히 집계할 수 없습니다. PDF를 만들기 전의 DWG 원본을 DXF로 저장해 올려주세요. (엑셀 내역서가 있다면 '엑셀 내역서로 물량 가져오기'가 더 정확합니다.)");
+      setError("PDF로 변환된 도면은 레이어·블록 정보가 사라져 물량을 정확히 집계할 수 없습니다. PDF를 만들기 전의 DWG 원본을 DXF로 저장해 올려주세요. (엑셀 내역서가 있다면 '엑셀 가져오기'가 더 정확합니다.)");
       return;
     }
     setLoading(true);
@@ -171,7 +170,7 @@ export default function DxfImportPage() {
     <div className="space-y-5">
       <div>
         <Link href={`/app/estimate/${projectId}`} className="text-xs text-gray-400 underline">← 견적서로 돌아가기</Link>
-        <h1 className="text-lg font-bold mt-1">📐 도면으로 물량 가져오기</h1>
+        <h1 className="text-lg font-bold mt-1">📐 도면 가져오기</h1>
         <p className="text-xs text-gray-500 mt-1">
           CAD 도면을 <b>DXF</b> 파일로 내보낸 뒤 업로드하면, 레이어별 전선관/전선 길이와 블록(콘센트·스위치·조명 등) 개수를 자동으로 집계해 견적서에 반영합니다.
           DWG 파일은 CAD 프로그램에서 &ldquo;다른 이름으로 저장 → DXF&rdquo;로 변환 후 업로드해주세요.
@@ -180,7 +179,7 @@ export default function DxfImportPage() {
       </div>
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
-        <input type="file" accept=".dxf,.dwg,.pdf" onChange={onFileChange} className="text-sm" />
+        <FileDropZone accept=".dxf,.dwg,.pdf" label="도면(.dxf) 올리기" disabled={loading || submitting} onFile={handleFile} />
         <details className="text-xs text-gray-500 rounded-lg bg-gray-50 p-3">
           <summary className="cursor-pointer font-semibold text-gray-600">DWG/PDF 도면이라면? DXF 변환 방법</summary>
           <ul className="mt-2 space-y-1.5 list-disc pl-4">

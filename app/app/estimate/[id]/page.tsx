@@ -112,13 +112,13 @@ export default function EstimateDetailPage() {
             href={`/app/estimate/${projectId}/excel`}
             className="text-xs bg-[#1f6f54] text-white rounded-lg px-3 py-1.5 font-semibold"
           >
-            📊 엑셀 내역서로 물량 가져오기
+            📊 엑셀 가져오기
           </Link>
           <Link
             href={`/app/estimate/${projectId}/dxf`}
             className="text-xs bg-[#1f6f54] text-white rounded-lg px-3 py-1.5 font-semibold"
           >
-            📐 도면으로 물량 가져오기
+            📐 도면 가져오기
           </Link>
           <Link
             href={`/app/estimate/${projectId}/versions`}
@@ -130,13 +130,13 @@ export default function EstimateDetailPage() {
             href={`/app/estimate/${projectId}/print`}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
           >
-            🖨 제출용 인쇄/PDF
+            🖨 저장
           </Link>
           <a
             href={`/api/projects/${projectId}/export`}
             className="text-xs bg-black text-white rounded-lg px-3 py-1.5 font-semibold"
           >
-            ⬇ 엑셀 다운로드
+            ⬇ 엑셀 다운
           </a>
           <button onClick={removeProject} className="text-xs text-red-600 underline">삭제</button>
         </div>

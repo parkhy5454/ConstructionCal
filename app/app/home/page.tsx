@@ -44,7 +44,7 @@ export default function HomePage() {
     { done: (stats?.total ?? 0) > 0, title: "견적서 만들기", desc: "업종(전기·통신·소방…)을 고르고 새 견적서를 만들거나, 이미 들어 있는 예시 견적서를 열어 보세요.", href: "/app/estimate", cta: "견적서 열기" },
     { done: (stats?.withItems ?? 0) > 0, title: "물량 넣기", desc: "도면(DXF)이나 기존 엑셀 내역서를 올리면 물량이 자동으로 들어갑니다. 직접 입력도 됩니다.", href: stats?.latest ? `/app/estimate/${stats.latest.id}` : "/app/estimate", cta: "물량 넣으러 가기" },
     { done: visitedPrices, title: "단가·품셈 확인", desc: "내 단가와 표준품셈(공수), 노임단가를 확인하고 필요하면 수정하세요. 이 값으로 모든 견적이 계산됩니다.", href: "/app/prices", cta: "물가정보 보기", onClick: () => { try { localStorage.setItem("concal_guide_prices", "1"); } catch {} } },
-    { done: false, title: "내려받기·제출", desc: "엑셀 내역서를 내려받거나 '제출용 인쇄/PDF'로 표지·결재란이 있는 제출 문서를 만들어 보세요. 발주처에는 읽기 전용 공유 링크도 보낼 수 있습니다.", href: stats?.latest ? `/app/estimate/${stats.latest.id}/print` : "/app/estimate", cta: "제출용 문서 보기", optional: true },
+    { done: false, title: "내려받기·제출", desc: "엑셀 내역서를 내려받거나 '저장'(인쇄·PDF)으로 표지·결재란이 있는 제출 문서를 만들어 보세요. 발주처에는 읽기 전용 공유 링크도 보낼 수 있습니다.", href: stats?.latest ? `/app/estimate/${stats.latest.id}/print` : "/app/estimate", cta: "제출용 문서 보기", optional: true },
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const showGuide = !hideGuide;
