@@ -12,7 +12,7 @@ export const PRINT_CSS = `
   .sheet { background: #fff; color: #000; margin: 0 auto 16px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; overflow-x: auto; }
   .sheet.landscape { page: landscape; max-width: calc(297mm - ${PRINT_MARGIN_MM * 2}mm + 32px); }
   .sheet.portrait { page: portrait; max-width: calc(210mm - ${PRINT_MARGIN_MM * 2}mm + 32px); }
-  .sheet .doc-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 10px; margin: 4px 0 14px; }
+  .sheet .doc-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 10px; text-indent: 10px; margin: 4px 0 14px; }
   .sheet .doc-title span { border-bottom: 2px solid #000; padding: 0 6px 2px; }
   .sheet .doc-sub { font-size: 12px; font-weight: 700; margin: 0 0 4px; }
   .sheet table.doc { border-collapse: collapse; width: 100%; font-size: 10.5px; table-layout: auto; }
@@ -246,7 +246,7 @@ export function Sheet7Estimate({ result, supplier, recipient, logo, seal, notes 
   return (
     <section className="sheet portrait">
       <div className="gab">
-        <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 14, padding: "10px 0", borderBottom: "1px solid #000", fontWeight: 500 }}>견 적 서</div>
+        <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 14, textIndent: 14, padding: "10px 0", borderBottom: "1px solid #000", fontWeight: 500 }}>견 적 서</div>
         <div style={{ display: "flex", borderBottom: "1px solid #000" }}>
           <div style={{ flex: "0 0 38%", padding: "14px 10px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, fontSize: 13 }}>
             <div style={{ fontSize: 16, fontWeight: 700 }}>{recipient.client ? `${recipient.client} 귀하` : "귀하"}</div>
