@@ -2,7 +2,7 @@ import { subscriptionBlock } from "@/lib/subscription";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getProjectOwned, getMaterials, getExcelMappings, getProjectBom } from "@/lib/estimateData";
-import { parseExcelBoq } from "@/lib/excelImport";
+import { parseExcelBoq, previewExcel, type ColumnMapping } from "@/lib/excelImport";
 import { matchRows } from "@/lib/excelMatch";
 import type { Discipline } from "@/lib/calc";
 
@@ -43,9 +43,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "파일이 너무 큽니다(4MB 이하). 필요한 시트만 남겨 다시 저장해주세요." }, { status: 400 });
   }
 
+  // 열 직접 지정(선택): mapping JSON이 있으면 그 시트·열로 읽고, mode=preview면 시트 앞부분만 돌려줍니다.
+  let mapping: ColumnMapping | undefined;
+  const rawMap = form?.get("mapping");
+  if (typeof rawMap === "string" && rawMap) {
+    try {
+      const m = JSON.parse(rawMap);
+      const col = (v: unknown, min = 0) => (Number.isInteger(v) && (v as number) >= min && (v as number) <= 60 ? (v as number) : null);
+      const qty = Array.isArray(m.qty) ? m.qty.map((q: unknown) => col(q, 1)).filter((q: number | null): q is number => q !== null).slice(0, 12) : [];
+      const hr = Number.isInteger(m.headerRow) && m.headerRow >= 0 && m.headerRow <= 200 ? m.headerRow : null;
+      const nameCol = col(m.name, 1), specCol = col(m.spec), unitCol = col(m.unit), priceCol = col(m.price);
+      if (typeof m.sheet !== "string" || hr === null || nameCol === null || specCol === null || unitCol === null || priceCol === null || qty.length === 0) {
+        return NextResponse.json({ error: "열 지정이 올바르지 않습니다. 품명 열과 수량 열은 꼭 지정해야 합니다." }, { status: 400 });
+      }
+      mapping = { sheet: m.sheet, headerRow: hr, name: nameCol, spec: specCol, unit: unitCol, qty, price: priceCol };
+    } catch {
+      return NextResponse.json({ error: "열 지정이 올바르지 않습니다." }, { status: 400 });
+    }
+  }
+
   let parsed;
   try {
-    parsed = await parseExcelBoq(await f.arrayBuffer());
+    if (form?.get("mode") === "preview") {
+      return NextResponse.json({ preview: await previewExcel(await f.arrayBuffer()) });
+    }
+    parsed = await parseExcelBoq(await f.arrayBuffer(), mapping);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "알 수 없는 오류";
     return NextResponse.json({ error: `엑셀 분석에 실패했습니다(암호가 걸렸거나 손상된 파일일 수 있습니다): ${msg}` }, { status: 400 });
@@ -70,6 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     sheets: parsed.sheets,
     rows,
     warnings: parsed.warnings,
+    needMapping: parsed.sheets.length === 0,
     existingBomCount: bom.length,
     materials: materials.map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
   });

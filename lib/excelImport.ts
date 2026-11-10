@@ -16,6 +16,9 @@ export type ExcelRow = {
 
 export type ExcelSheetInfo = { name: string; rowCount: number; defaultInclude: boolean };
 export type ExcelParseResult = { sheets: ExcelSheetInfo[]; rows: ExcelRow[]; warnings: string[] };
+// 사용자가 화면에서 직접 지정하는 열 매핑(1부터 시작하는 열 번호, 0 = 없음). qty는 여러 열(층별 수량 등)을 합산할 수 있습니다.
+export type ColumnMapping = { sheet: string; headerRow: number; name: number; spec: number; unit: number; qty: number[]; price: number };
+export type SheetPreview = { name: string; rows: string[][]; totalRows: number };
 
 const MAX_ROWS = 5000;
 const HEADER_SCAN_ROWS = 40;
@@ -69,8 +72,8 @@ function detectHeader(ws: ExcelJS.Worksheet): { headerRow: number; dataStart: nu
       }
       return 0;
     };
-    const qty = findFirst(["수량"]);
-    const name = findFirst(["품명", "품목", "명칭", "자재명", "재료명", "내역", "항목"]);
+    const qty = findFirst(["수량", "물량", "총수량"]);
+    const name = findFirst(["품명", "품목", "명칭", "자재명", "재료명", "자재", "재료", "내역", "항목"]);
     if (!qty || !name) continue;
     const spec = findFirst(["규격", "사양", "모델"], [name]);
     const unit = findFirst(["단위"]);
@@ -108,7 +111,70 @@ function detectHeader(ws: ExcelJS.Worksheet): { headerRow: number; dataStart: nu
   return null;
 }
 
-export async function parseExcelBoq(buf: ArrayBuffer): Promise<ExcelParseResult> {
+type ReadCols = { name: number; spec: number; unit: number; qty: number[]; price: number };
+
+function sumQty(row: ExcelJS.Row, cols: number[]): number | null {
+  let total: number | null = null;
+  for (const c of cols) {
+    const n = cellNum(row.getCell(c).value);
+    if (n != null) total = (total ?? 0) + n;
+  }
+  return total;
+}
+
+// 한 시트를 읽어 rows에 추가하고 추가된 행 수를 돌려줍니다.
+function readSheet(ws: ExcelJS.Worksheet, cols: ReadCols, dataStart: number, rows: ExcelRow[], warnings: string[]): number {
+  let group = "";
+  let count = 0;
+  for (let r = dataStart; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    let name = cellText(row.getCell(cols.name).value);
+    let spec = cols.spec ? cellText(row.getCell(cols.spec).value) : "";
+    const unit = cols.unit ? cellText(row.getCell(cols.unit).value) : "";
+    const qty = sumQty(row, cols.qty);
+    const price = cols.price ? cellNum(row.getCell(cols.price).value) : null;
+
+    if (!name && spec) {
+      name = spec;
+      spec = "";
+    }
+    if (!name) continue;
+    if (SUBTOTAL.test(compact(name).replace(/[[\]()<>]/g, ""))) continue;
+
+    if (qty == null || qty <= 0) {
+      // 수량·단가가 없는 행은 공종 제목으로 보고 이후 행의 그룹명으로 사용합니다.
+      // 병합된 제목 행은 단위 칸에도 같은 텍스트가 복사돼 보이므로, 이름과 같으면 빈 칸으로 취급합니다.
+      if (price == null && (!unit || unit === name)) group = name.slice(0, 60);
+      continue;
+    }
+    if (rows.length >= MAX_ROWS) {
+      warnings.push(`행이 ${MAX_ROWS}개를 넘어 이후 행은 가져오지 않았습니다.`);
+      break;
+    }
+    rows.push({ sheet: ws.name, rowNo: r, groupName: group || ws.name.slice(0, 60), name, spec, unit, qty, origPrice: price });
+    count++;
+  }
+  return count;
+}
+
+// 열 직접 지정 화면용: 각 시트의 앞부분을 그대로 보여줍니다(최대 6개 시트, 40행 × 14열).
+export async function previewExcel(buf: ArrayBuffer): Promise<SheetPreview[]> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(buf) as unknown as Parameters<ExcelJS.Xlsx["load"]>[0]);
+  return wb.worksheets.slice(0, 6).map((ws) => {
+    const rows: string[][] = [];
+    const last = Math.min(ws.rowCount, 40);
+    for (let r = 1; r <= last; r++) {
+      const row = ws.getRow(r);
+      const line: string[] = [];
+      for (let c = 1; c <= 14; c++) line.push(cellText(row.getCell(c).value).slice(0, 40));
+      rows.push(line);
+    }
+    return { name: ws.name, rows, totalRows: ws.rowCount };
+  });
+}
+
+export async function parseExcelBoq(buf: ArrayBuffer, mapping?: ColumnMapping): Promise<ExcelParseResult> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(Buffer.from(buf) as unknown as Parameters<ExcelJS.Xlsx["load"]>[0]);
 
@@ -116,50 +182,23 @@ export async function parseExcelBoq(buf: ArrayBuffer): Promise<ExcelParseResult>
   const rows: ExcelRow[] = [];
   const warnings: string[] = [];
 
+  if (mapping) {
+    const ws = wb.worksheets.find((w) => w.name === mapping.sheet);
+    if (!ws) {
+      warnings.push("선택한 시트를 찾지 못했습니다.");
+    } else {
+      const count = readSheet(ws, { name: mapping.name, spec: mapping.spec, unit: mapping.unit, qty: mapping.qty, price: mapping.price }, mapping.headerRow + 1, rows, warnings);
+      sheets.push({ name: ws.name, rowCount: count, defaultInclude: count > 0 });
+      if (count === 0) warnings.push("지정한 열에서 가져올 행(수량이 0보다 큰 행)을 찾지 못했습니다. 품명·수량 열과 헤더 행을 다시 확인하세요.");
+    }
+    return { sheets, rows, warnings };
+  }
+
   for (const ws of wb.worksheets) {
     const det = detectHeader(ws);
     if (!det) continue;
-    const { cols, dataStart } = det;
-    let group = "";
-    let count = 0;
-
-    for (let r = dataStart; r <= ws.rowCount; r++) {
-      const row = ws.getRow(r);
-      let name = cellText(row.getCell(cols.name).value);
-      let spec = cols.spec ? cellText(row.getCell(cols.spec).value) : "";
-      const unit = cols.unit ? cellText(row.getCell(cols.unit).value) : "";
-      const qty = cellNum(row.getCell(cols.qty).value);
-      const price = cols.price ? cellNum(row.getCell(cols.price).value) : null;
-
-      if (!name && spec) {
-        name = spec;
-        spec = "";
-      }
-      if (!name) continue;
-      if (SUBTOTAL.test(compact(name).replace(/[[\]()<>]/g, ""))) continue;
-
-      if (qty == null || qty <= 0) {
-        // 수량·단가가 없는 행은 공종 제목으로 보고 이후 행의 그룹명으로 사용합니다.
-        // 병합된 제목 행은 단위 칸에도 같은 텍스트가 복사돼 보이므로, 이름과 같으면 빈 칸으로 취급합니다.
-        if (price == null && (!unit || unit === name)) group = name.slice(0, 60);
-        continue;
-      }
-      if (rows.length >= MAX_ROWS) {
-        warnings.push(`행이 ${MAX_ROWS}개를 넘어 이후 행은 가져오지 않았습니다.`);
-        break;
-      }
-      rows.push({
-        sheet: ws.name,
-        rowNo: r,
-        groupName: group || ws.name.slice(0, 60),
-        name,
-        spec,
-        unit,
-        qty,
-        origPrice: price,
-      });
-      count++;
-    }
+    const c = det.cols;
+    const count = readSheet(ws, { name: c.name, spec: c.spec, unit: c.unit, qty: [c.qty], price: c.price }, det.dataStart, rows, warnings);
     sheets.push({ name: ws.name, rowCount: count, defaultInclude: count > 0 && !AUX_SHEET.test(ws.name) });
   }
 

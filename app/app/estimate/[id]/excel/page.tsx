@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { normUnit } from "@/lib/excelMatch";
+import ColumnMapper, { type Mapping } from "./ColumnMapper";
 
 type Material = { id: number; name: string; spec: string; unit: string; price: number };
 type Method = "saved" | "exact" | "fuzzy" | "none";
@@ -67,6 +68,8 @@ export default function ExcelImportPage() {
   const [onlyAttention, setOnlyAttention] = useState(false);
   const [limit, setLimit] = useState(100);
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [showMapper, setShowMapper] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [autoNotice, setAutoNotice] = useState<string | null>(null);
@@ -98,7 +101,9 @@ export default function ExcelImportPage() {
     return d as { inserted: number; createdMaterials: number };
   }
 
-  async function handleFile(file: File) {
+  async function handleFile(file: File, mapping?: Mapping) {
+    setFile(file);
+    setShowMapper(false);
     setFileName(file.name);
     setError(null);
     setAutoNotice(null);
@@ -108,12 +113,14 @@ export default function ExcelImportPage() {
     try {
       const form = new FormData();
       form.append("file", file);
+      if (mapping) form.append("mapping", JSON.stringify(mapping));
       const res = await fetch(`/api/projects/${projectId}/excel-import`, { method: "POST", body: form });
       const d = await res.json();
       if (!res.ok) {
         setError(d.error ?? "분석에 실패했습니다.");
         return;
       }
+      if (d.needMapping) setShowMapper(true);
       const apiRows: ApiRow[] = d.rows ?? [];
       const mats: Material[] = d.materials ?? [];
       const sh: SheetInfo[] = d.sheets ?? [];
@@ -235,8 +242,13 @@ export default function ExcelImportPage() {
       </div>
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
-        <FileDropZone accept=".xlsx" label="엑셀 내역서(.xlsx) 올리기" disabled={loading || submitting} onFile={handleFile} />
-        {fileName && <p className="text-xs text-gray-400">{fileName}</p>}
+        <FileDropZone accept=".xlsx" label="엑셀 내역서·물량 산출표(.xlsx) 올리기" disabled={loading || submitting} onFile={(f) => handleFile(f)} />
+        {fileName && (
+          <p className="text-xs text-gray-400">
+            {fileName}
+            {file && !showMapper && <button onClick={() => setShowMapper(true)} className="ml-3 underline text-gray-600">열 직접 지정해서 다시 읽기</button>}
+          </p>
+        )}
         {loading && <p className="text-sm text-gray-400">분석 중...</p>}
         {submitting && !rows && <p className="text-sm text-gray-400">반영 중...</p>}
         {autoNotice && <p className="text-sm text-[#1f6f54] font-semibold">{autoNotice}</p>}
@@ -246,7 +258,11 @@ export default function ExcelImportPage() {
         ))}
       </section>
 
-      {rows && rows.length === 0 && !error && (
+      {showMapper && file && (
+        <ColumnMapper projectId={projectId} file={file} busy={loading} onCancel={() => setShowMapper(false)} onApply={(m) => handleFile(file, m)} />
+      )}
+
+      {rows && rows.length === 0 && !error && !showMapper && (
         <p className="text-sm text-gray-400">가져올 수 있는 행을 찾지 못했습니다. 헤더에 &lsquo;품명&rsquo;과 &lsquo;수량&rsquo;이 있는지 확인해주세요.</p>
       )}
 
