@@ -48,6 +48,7 @@ export type BomItem = {
 
 export type IlwidaegaRow = {
   materialId: number;
+  laborCode: string;
   name: string;
   spec: string;
   unit: string;
@@ -72,6 +73,7 @@ export function computeIlwidaega(
     const laborPrice = p.factor * laborRate;
     return {
       materialId: p.materialId,
+      laborCode: p.laborCode,
       name: mat?.name ?? "(삭제된 자재)",
       spec: mat?.spec ?? "",
       unit: mat?.unit ?? "",

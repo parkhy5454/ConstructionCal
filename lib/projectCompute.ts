@@ -19,7 +19,7 @@ export async function computeProject(project: ProjectLike) {
     getMeta(project.id),
   ]);
   const result = computeAll(materials, pum, laborRates, rates, bom, meta.surcharges);
-  return { materials, laborRates, bom, meta, result };
+  return { materials, laborRates, bom, meta, result, rates };
 }
 
 export type ProjectTotals = { sumMat: number; sumLabor: number; sumExpense: number; final: number; itemCount: number };

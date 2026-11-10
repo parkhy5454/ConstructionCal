@@ -18,11 +18,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const project = await getProjectOwned(user.id, id);
   if (!project) return NextResponse.json({ error: "견적서를 찾을 수 없습니다." }, { status: 404 });
-  const { materials: mats, laborRates: labor, bom, meta, result } = await computeProject(project);
+  const { materials: mats, laborRates: labor, bom, meta, result, rates } = await computeProject(project);
   const clientList = await listClients(user.id);
 
   return NextResponse.json({
-    project, materials: mats, laborRates: labor, bom, result,
+    project, materials: mats, laborRates: labor, bom, result, rates,
     meta, clients: clientList.map((c) => ({ id: c.id, name: c.name })),
   });
 }
