@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { normUnit } from "@/lib/excelMatch";
 import ColumnMapper, { type Mapping } from "./ColumnMapper";
+import { parsePasted } from "@/lib/pasteParse";
 
 type Material = { id: number; name: string; spec: string; unit: string; price: number };
 type Method = "saved" | "exact" | "fuzzy" | "none";
@@ -70,6 +71,8 @@ export default function ExcelImportPage() {
   const [fileName, setFileName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [showMapper, setShowMapper] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [oneClick, setOneClick] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [autoNotice, setAutoNotice] = useState<string | null>(null);
@@ -120,6 +123,37 @@ export default function ExcelImportPage() {
         setError(d.error ?? "분석에 실패했습니다.");
         return;
       }
+      await processResult(d);
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 표 붙여넣기: 붙여넣은 텍스트를 행으로 나눠 서버에서 자재와 매칭한 뒤 같은 확인 화면으로 보냅니다.
+  async function handlePaste() {
+    setError(null); setAutoNotice(null); setFileName(""); setFile(null); setShowMapper(false); setRows(null); setLimit(100);
+    const { rows: pr, skipped } = parsePasted(pasteText);
+    if (pr.length === 0) { setError("붙여넣은 내용에서 '품명 … 수량' 형태의 행을 찾지 못했습니다. 엑셀에서 셀 범위를 복사해 붙여넣어 보세요."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/excel-import/paste`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: pr }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error ?? "분석에 실패했습니다."); return; }
+      if (skipped > 0) d.warnings = [...(d.warnings ?? []), `읽지 못해 건너뛴 줄이 ${skipped}개 있습니다(품명·수량이 없는 줄).`];
+      await processResult(d);
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function processResult(d: { rows?: ApiRow[]; materials?: Material[]; sheets?: SheetInfo[]; warnings?: string[]; existingBomCount?: number; needMapping?: boolean }) {
+    try {
       if (d.needMapping) setShowMapper(true);
       const apiRows: ApiRow[] = d.rows ?? [];
       const mats: Material[] = d.materials ?? [];
@@ -132,13 +166,18 @@ export default function ExcelImportPage() {
       sh.forEach((s) => (on[s.name] = s.defaultInclude));
       setSheetOn(on);
 
-      const built: Row[] = apiRows.map((r) => ({
-        ...r,
-        rid: `${r.sheet}#${r.rowNo}`,
-        materialId: r.suggestedMaterialId ? String(r.suggestedMaterialId) : "",
-        include: !!r.suggestedMaterialId,
-        saveMapping: true,
-      }));
+      // 한 번에 반영 옵션: 저장된 매칭/일치는 그대로, 유사·매칭 없음은 새 자재로 등록(원본 단가, 없으면 0원)
+      const built: Row[] = apiRows.map((r) => {
+        const sure = r.method === "saved" || r.method === "exact";
+        const asNew = oneClick && !sure;
+        return {
+          ...r,
+          rid: `${r.sheet}#${r.rowNo}`,
+          materialId: asNew ? "new" : r.suggestedMaterialId ? String(r.suggestedMaterialId) : "",
+          include: asNew || !!r.suggestedMaterialId,
+          saveMapping: true,
+        };
+      });
 
       // 기본 포함 시트의 모든 행이 "저장된 매칭/정확 일치"이고 단위도 맞고, 견적서 BOM이 비어 있으면
       // 확인 화면 없이 바로 반영합니다 (풀 자동). 기존 BOM이 있으면 중복 방지를 위해 항상 확인을 거칩니다.
@@ -147,6 +186,7 @@ export default function ExcelImportPage() {
       const allSure =
         targets.length > 0 &&
         targets.every((r) => {
+          if (oneClick) return true;
           if (r.method !== "saved" && r.method !== "exact") return false;
           const m = r.suggestedMaterialId ? matById2.get(r.suggestedMaterialId) : null;
           return !(m && r.unit && normUnit(m.unit) !== normUnit(r.unit));
@@ -170,9 +210,7 @@ export default function ExcelImportPage() {
       setReplace(false);
       setRows(built);
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
+      setError("처리 중 오류가 발생했습니다.");
     }
   }
 
@@ -258,6 +296,10 @@ export default function ExcelImportPage() {
 
       <section className="bg-white border rounded-xl p-4 space-y-3">
         <FileDropZone accept=".xlsx" label="엑셀 내역서·물량 산출표(.xlsx) 올리기" disabled={loading || submitting} onFile={(f) => handleFile(f)} />
+        <label className="flex items-start gap-2 text-xs text-gray-600">
+          <input type="checkbox" className="mt-0.5" checked={oneClick} onChange={(e) => setOneClick(e.target.checked)} />
+          <span><b>확인 없이 한 번에 반영</b> — 자동으로 일치한 행은 그대로 쓰고, 일치하지 않는 행은 새 자재로 등록합니다(원본 단가, 없으면 0원). 견적서가 비어 있을 때만 바로 반영되며, 반영 후 견적서의 검토 알림에서 0원 단가를 확인하세요.</span>
+        </label>
         {fileName && (
           <p className="text-xs text-gray-400">
             {fileName}
@@ -271,6 +313,14 @@ export default function ExcelImportPage() {
         {warnings.map((w) => (
           <p key={w} className="text-xs text-amber-600">{w}</p>
         ))}
+      </section>
+
+      <section className="bg-white border rounded-xl p-4 space-y-2">
+        <h2 className="text-sm font-bold">표 붙여넣기</h2>
+        <p className="text-xs text-gray-500">엑셀에서 <b>품명 · 규격 · 단위 · 수량</b>이 있는 셀 범위를 복사(Ctrl+C)해서 아래에 붙여넣으세요. 파일을 저장하지 않고 일부만 옮길 때 편합니다.</p>
+        <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={5} placeholder={"분전함\t방수함 sus 400*500*150\t면\t1\n전력케이블\tFCV 0.6/1KV 4C x 6㎟\tM\t100"}
+          className="w-full border rounded-lg px-3 py-2 text-xs font-mono" />
+        <button type="button" onClick={handlePaste} disabled={loading || submitting || !pasteText.trim()} className="bg-black text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40">붙여넣은 내용 분석</button>
       </section>
 
       {showMapper && file && (

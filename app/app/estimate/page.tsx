@@ -20,6 +20,7 @@ export default function EstimateListPage() {
   const [name, setName] = useState("");
   const [discipline, setDiscipline] = useState<Discipline>("electrical");
   const [creating, setCreating] = useState(false);
+  const [copyFrom, setCopyFrom] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Discipline | "all">("all");
@@ -44,6 +45,16 @@ export default function EstimateListPage() {
     if (!name.trim()) return;
     setCreating(true);
     setError(null);
+    if (copyFrom) {
+      // 비슷한 견적서에서 시작: 물량을 그대로 복제한 뒤 이름만 새로 붙입니다.
+      const dup = await fetch(`/api/projects/${copyFrom}/duplicate`, { method: "POST" });
+      const dd = await dup.json().catch(() => ({}));
+      if (!dup.ok) { setCreating(false); setError(dd.error ?? "복제 실패"); return; }
+      await fetch(`/api/projects/${dd.project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) });
+      setCreating(false);
+      router.push(`/app/estimate/${dd.project.id}`);
+      return;
+    }
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,7 +120,7 @@ export default function EstimateListPage() {
             <button
               key={d}
               type="button"
-              onClick={() => setDiscipline(d)}
+              onClick={() => { setDiscipline(d); setCopyFrom(""); }}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                 d === discipline ? "bg-[#1f6f54] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
@@ -118,6 +129,16 @@ export default function EstimateListPage() {
             </button>
           ))}
         </div>
+        {projects.some((p) => p.discipline === discipline) && (
+          <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-xs bg-white">
+            <option value="">처음부터 새로 만들기</option>
+            {projects
+              .filter((p) => p.discipline === discipline)
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+              .slice(0, 30)
+              .map((p) => <option key={p.id} value={p.id}>비슷한 견적서에서 시작: {p.name}</option>)}
+          </select>
+        )}
         <div className="flex gap-2">
           <input
             value={name}

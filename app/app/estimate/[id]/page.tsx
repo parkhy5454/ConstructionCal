@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { fmt, DISCIPLINE_LABELS } from "@/lib/calc";
@@ -8,6 +8,7 @@ import SettingsPanel from "./SettingsPanel";
 import SharePanel from "./SharePanel";
 import QuickAdd from "./QuickAdd";
 import FixLabor from "./FixLabor";
+import MaterialPicker from "@/components/MaterialPicker";
 import { estimateWarnings } from "@/lib/warnings";
 
 type ProjectData = {
@@ -31,6 +32,8 @@ export default function EstimateDetailPage() {
   const [newGroup, setNewGroup] = useState("");
   const [newMaterialId, setNewMaterialId] = useState("");
   const [newQty, setNewQty] = useState("1");
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const qtyRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -73,6 +76,7 @@ export default function EstimateDetailPage() {
     setNewMaterialId("");
     setNewQty("1");
     load();
+    setTimeout(() => pickerRef.current?.focus(), 0);
   }
 
   async function removeProject() {
@@ -197,13 +201,9 @@ export default function EstimateDetailPage() {
         <form onSubmit={addItem} className="mt-3 flex flex-wrap gap-2 items-center border-t pt-3">
           <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="공종 (예: 1.전열공사)"
             className="border rounded-lg px-2 py-1.5 text-xs w-32" />
-          <select value={newMaterialId} onChange={(e) => setNewMaterialId(e.target.value)} className="border rounded-lg px-2 py-1.5 text-xs flex-1 min-w-[160px]">
-            <option value="">자재 선택...</option>
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>{m.name} ({m.spec || m.unit})</option>
-            ))}
-          </select>
-          <input type="number" min="0" step="1" value={newQty} onChange={(e) => setNewQty(e.target.value)}
+          <MaterialPicker materials={materials} value={newMaterialId} onChange={setNewMaterialId} inputRef={pickerRef}
+            onPicked={() => setTimeout(() => { qtyRef.current?.focus(); qtyRef.current?.select(); }, 0)} />
+          <input ref={qtyRef} type="number" min="0" step="1" value={newQty} onChange={(e) => setNewQty(e.target.value)}
             className="border rounded-lg px-2 py-1.5 text-xs w-16 text-right" />
           <button disabled={busy} className="bg-black text-white rounded-lg px-3 py-1.5 text-xs font-semibold">추가</button>
         </form>
