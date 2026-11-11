@@ -9,6 +9,7 @@
     "lint": "next lint",
     "db:push": "drizzle-kit push",
     "create-admin": "tsx scripts/create-admin.ts",
+    "load-materials": "tsx scripts/load-materials.ts",
     "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
