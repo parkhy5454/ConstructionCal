@@ -10,6 +10,7 @@
     "db:push": "drizzle-kit push",
     "create-admin": "tsx scripts/create-admin.ts",
     "load-materials": "tsx scripts/load-materials.ts",
+    "load-pumsem": "tsx scripts/load-pumsem.ts",
     "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {

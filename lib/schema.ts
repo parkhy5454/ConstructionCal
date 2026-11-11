@@ -8,6 +8,7 @@ import {
   integer,
   numeric,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["user", "admin"]);
@@ -209,7 +210,27 @@ export const pumsem = pgTable("pumsem", {
   laborCode: varchar("labor_code", { length: 20 }).notNull(),
   factor: numeric("factor", { precision: 10, scale: 4 }).notNull().default("0"),
 }, (t) => ({
-  userMaterial: unique().on(t.userId, t.materialId),
+  // 자재 하나에 직종이 여러 개(예: 전공 + 보통인부)일 수 있으므로 (사용자, 자재, 직종)이 유일합니다.
+  userMaterialLabor: unique().on(t.userId, t.materialId, t.laborCode),
+}));
+
+// 표준품셈 책(공종 중심) 마스터: 업종별로 공종(표 제목)·규격·기준단위와 직종별 공수를 담습니다. 모든 사용자가 같이 읽고,
+// 사용자는 이 중에서 자기 자재에 연결(적용)해 pumsem(자재별 공수)로 복사해 씁니다. labors는 JSON [{name, factor, qualifier?}].
+export const pumsemItems = pgTable("pumsem_items", {
+  id: serial("id").primaryKey(),
+  discipline: disciplineEnum("discipline").notNull(),
+  code: varchar("code", { length: 40 }).notNull().default(""),
+  chapter: varchar("chapter", { length: 160 }).notNull().default(""),
+  section: varchar("section", { length: 200 }).notNull().default(""),
+  title: varchar("title", { length: 300 }).notNull(),
+  spec: varchar("spec", { length: 500 }).notNull().default(""),
+  unit: varchar("unit", { length: 40 }).notNull().default(""),
+  page: integer("page"),
+  note: text("note").notNull().default(""),
+  review: text("review").notNull().default(""),
+  labors: text("labors").notNull().default("[]"),
+}, (t) => ({
+  byDiscipline: index("pumsem_items_discipline_idx").on(t.discipline),
 }));
 
 // 원가 계산 비율 (간접노무비/기타경비/일반관리비/이윤/부가세 등) — 계정×업종당 1행

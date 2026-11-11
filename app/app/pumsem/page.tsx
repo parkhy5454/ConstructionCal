@@ -1,5 +1,6 @@
 "use client";
 import MaterialPicker from "@/components/MaterialPicker";
+import PumsemBook from "@/components/PumsemBook";
 import { useEffect, useState, useCallback } from "react";
 import { computeIlwidaega, fmt } from "@/lib/calc";
 import type { Material, LaborRate, Pumsem, Discipline } from "@/lib/calc";
@@ -80,6 +81,8 @@ export default function PumsemPage() {
       </div>
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
+
+      <PumsemBook discipline={discipline} onApplied={() => load(discipline)} />
 
       {loading ? (
         <p className="text-sm text-gray-400">불러오는 중...</p>
