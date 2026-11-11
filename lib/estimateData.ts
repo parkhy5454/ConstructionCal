@@ -1,4 +1,4 @@
-import { eq, and, ne, sql } from "drizzle-orm";
+import { eq, and, ne, sql, inArray, asc } from "drizzle-orm";
 import { getDb } from "./db";
 import { materials, laborRates, pumsem, rateSettings, projects, bomItems, dxfMappings } from "./schema";
 import {
@@ -172,6 +172,47 @@ export async function getMaterials(userId: number, discipline: Discipline): Prom
   const db = getDb();
   const rows = await db.select().from(materials).where(and(eq(materials.userId, userId), eq(materials.discipline, discipline)));
   return rows.map((m) => ({ id: m.id, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: num(m.price) }));
+}
+
+
+// 자재가 수만 개여도 견적·화면이 느려지지 않도록, 필요한 자재만 id로 읽거나 검색해서 쪽 단위로 가져옵니다.
+const uniqIds = (ids: number[]) => Array.from(new Set(ids.filter((i) => Number.isInteger(i))));
+export async function getMaterialsByIds(userId: number, discipline: Discipline, ids: number[]): Promise<Material[]> {
+  const list = uniqIds(ids);
+  if (list.length === 0) return [];
+  const db = getDb();
+  const out: Material[] = [];
+  for (let i = 0; i < list.length; i += 1000) {
+    const rows = await db.select().from(materials).where(and(eq(materials.userId, userId), eq(materials.discipline, discipline), inArray(materials.id, list.slice(i, i + 1000))));
+    for (const m of rows) out.push({ id: m.id, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: num(m.price) });
+  }
+  return out;
+}
+
+const likeEsc = (w: string) => w.replace(/[\\%_]/g, (c) => "\\" + c);
+// 이름·규격·분류에 검색어(공백으로 여러 단어, 모두 포함)가 들어 있는 자재를 쪽 단위로 반환합니다.
+export async function searchMaterials(userId: number, discipline: Discipline, q: string, limit: number, offset: number): Promise<{ rows: Material[]; total: number }> {
+  const db = getDb();
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const conds = [eq(materials.userId, userId), eq(materials.discipline, discipline)];
+  for (const w of words) conds.push(sql`lower(${materials.category} || ' ' || ${materials.name} || ' ' || ${materials.spec}) LIKE ${"%" + likeEsc(w) + "%"}`);
+  const where = and(...conds);
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(materials).where(where);
+  const rows = await db.select().from(materials).where(where).orderBy(asc(materials.category), asc(materials.name), asc(materials.spec), asc(materials.id)).limit(limit).offset(offset);
+  return { rows: rows.map((m) => ({ id: m.id, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: num(m.price) })), total: n };
+}
+
+export async function getPumsemForMaterials(userId: number, ids: number[]): Promise<Array<Pumsem & { id: number }>> {
+  const list = uniqIds(ids);
+  if (list.length === 0) return [];
+  const db = getDb();
+  const out: Array<Pumsem & { id: number }> = [];
+  for (let i = 0; i < list.length; i += 1000) {
+    const rows = await db.select({ id: pumsem.id, materialId: pumsem.materialId, laborCode: pumsem.laborCode, factor: pumsem.factor })
+      .from(pumsem).where(and(eq(pumsem.userId, userId), inArray(pumsem.materialId, list.slice(i, i + 1000))));
+    for (const p of rows) out.push({ id: p.id, materialId: p.materialId, laborCode: p.laborCode, factor: num(p.factor) });
+  }
+  return out;
 }
 
 // 이 자재가 이 사용자 것인지(필요하면 업종까지) 확인 — 다른 사용자의 자재 ID를 끼워 넣는 요청을 막습니다.

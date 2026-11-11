@@ -2,7 +2,7 @@ import { subscriptionBlock } from "@/lib/subscription";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getProjectOwned, getMaterials, getExcelMappings, getProjectBom } from "@/lib/estimateData";
-import { matchRows } from "@/lib/excelMatch";
+import { matchRows, pickSuggested } from "@/lib/excelMatch";
 import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
@@ -49,6 +49,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     warnings: [],
     needMapping: false,
     existingBomCount: bom.length,
-    materials: materials.map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
+    discipline,
+    // 자재가 수만 개일 수 있어 제안된 자재만 보내고, 나머지는 화면에서 검색으로 고릅니다.
+    materials: pickSuggested(materials, matches).map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
   });
 }

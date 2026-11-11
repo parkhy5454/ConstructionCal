@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { projectVersions, bomItems, projects } from "@/lib/schema";
-import { getProjectOwned, getMaterials } from "@/lib/estimateData";
+import { getProjectOwned, getMaterialsByIds } from "@/lib/estimateData";
 import { computeProject } from "@/lib/projectCompute";
 import { buildSnapshot, parseSnapshot } from "@/lib/versions";
 import { saveMeta, parseSurcharges, MetaTableMissingError } from "@/lib/projectMeta";
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
   const snap = parseSnapshot(rows[0].snapshot);
   if (!snap) return NextResponse.json({ error: "저장본을 읽을 수 없습니다." }, { status: 500 });
 
-  const mats = await getMaterials(user.id, project.discipline as Discipline);
+  const mats = await getMaterialsByIds(user.id, project.discipline as Discipline, snap.items.map((i) => i.mid));
   const existing = new Set(mats.map((m) => m.id));
   const restorable = snap.items.filter((i) => existing.has(i.mid));
   const skipped = snap.items.length - restorable.length;

@@ -214,7 +214,7 @@ export default function EstimateDetailPage() {
         <form onSubmit={addItem} className="mt-3 flex flex-wrap gap-2 items-center border-t pt-3">
           <input value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="공종 (예: 1.전열공사)"
             className="border rounded-lg px-2 py-1.5 text-xs w-32" />
-          <MaterialPicker materials={materials} value={newMaterialId} onChange={setNewMaterialId} inputRef={pickerRef}
+          <MaterialPicker discipline={project.discipline} value={newMaterialId} onChange={(id) => setNewMaterialId(id)} inputRef={pickerRef}
             onPicked={() => setTimeout(() => { qtyRef.current?.focus(); qtyRef.current?.select(); }, 0)} />
           <input ref={qtyRef} type="number" min="0" step="1" value={newQty} onChange={(e) => setNewQty(e.target.value)}
             className="border rounded-lg px-2 py-1.5 text-xs w-16 text-right" />

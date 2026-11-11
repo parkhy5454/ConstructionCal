@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { bomItems } from "@/lib/schema";
-import { getProjectOwned, upsertDxfMapping, getMaterials } from "@/lib/estimateData";
+import { getProjectOwned, upsertDxfMapping, getMaterialsByIds } from "@/lib/estimateData";
 import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const body = await req.json().catch(() => null);
   const items: ApplyItem[] = Array.isArray(body?.items) ? body.items : [];
   // 내 업종의 자재만 허용 (다른 사용자/업종의 materialId를 끼워 넣는 요청 차단)
-  const myIds = new Set((await getMaterials(user.id, discipline)).map((m) => m.id));
+  const myIds = new Set((await getMaterialsByIds(user.id, discipline, items.map((it) => (it && Number.isInteger(it.materialId) ? it.materialId : -1)))).map((m) => m.id));
   const valid = items.filter(
     (it) =>
       it &&

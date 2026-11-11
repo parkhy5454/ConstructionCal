@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/currentUser";
 import { getDb } from "@/lib/db";
 import { bomItems, materials as materialsTable } from "@/lib/schema";
-import { getProjectOwned, getMaterials, upsertExcelMappings } from "@/lib/estimateData";
+import { getProjectOwned, getMaterialsByIds, upsertExcelMappings } from "@/lib/estimateData";
 import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // 내 업종의 자재만 허용 (다른 사용자/업종의 materialId를 넣는 요청 차단)
-  const myMaterials = await getMaterials(user.id, discipline);
+  const myMaterials = await getMaterialsByIds(user.id, discipline, rawItems.map((it) => (it && Number.isInteger(it.materialId) ? (it.materialId as number) : -1)));
   const myIds = new Set(myMaterials.map((m) => m.id));
 
   const valid = rawItems.filter(

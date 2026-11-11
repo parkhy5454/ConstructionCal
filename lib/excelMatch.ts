@@ -73,6 +73,28 @@ export function matchRows(
   const exactMap = new Map<string, number>();
   for (const p of prepared) if (!exactMap.has(p.comb)) exactMap.set(p.comb, p.id);
 
+  // 자재가 수만 개면 행마다 전부 비교하지 않고, 글자쌍(bigram) 역색인으로 공통 글자쌍이 많은 후보만 추려 비교합니다.
+  const BIG = prepared.length > 1500;
+  const post = new Map<string, number[]>();
+  if (BIG) prepared.forEach((p, i) => p.bg.forEach((g) => { const a = post.get(g); if (a) a.push(i); else post.set(g, [i]); }));
+  const cnt = BIG ? new Uint16Array(prepared.length) : null;
+  const candidates = (bg: Set<string>) => {
+    if (!cnt) return prepared;
+    const touched: number[] = [];
+    bg.forEach((g) => {
+      const a = post.get(g);
+      if (!a || a.length > prepared.length * 0.4) return;
+      for (const i of a) { if (cnt[i] === 0) touched.push(i); cnt[i]++; }
+    });
+    let max = 0;
+    for (const i of touched) if (cnt[i] > max) max = cnt[i];
+    let picked = touched.filter((i) => cnt[i] >= Math.max(1, max * 0.5));
+    if (picked.length > 400) picked = picked.sort((x, y) => cnt[y] - cnt[x]).slice(0, 400);
+    const out = picked.map((i) => prepared[i]);
+    for (const i of touched) cnt[i] = 0;
+    return out;
+  };
+
   return rows.map((r) => {
     const key = matchKey(r.name, r.spec);
     const saved = memory.get(key);
@@ -88,7 +110,7 @@ export function matchRows(
     let bestId: number | null = null;
     let best = 0;
     let bestDice = 0;
-    for (const p of prepared) {
+    for (const p of candidates(bg)) {
       const inter = intersectCount(bg, p.bg);
       const diceScore = bg.size + p.bg.size > 0 ? (2 * inter) / (bg.size + p.bg.size) : 0;
       // DB 품명이 길고 현장 표기가 줄임말(예: "HFIX 2.5sq")이면 dice가 낮으므로,
@@ -114,4 +136,11 @@ export function matchRows(
     }
     return { materialId: null, method: "none" as const, score: Math.round(best * 100) / 100, key };
   });
+}
+
+// 매칭 결과에 나온(제안된) 자재만 추립니다 — 응답 크기를 줄이기 위함.
+export function pickSuggested<T extends { id: number }>(materials: T[], matches: Array<{ materialId: number | null }>): T[] {
+  const want = new Set<number>();
+  for (const m of matches) if (m.materialId != null) want.add(m.materialId);
+  return materials.filter((m) => want.has(m.id));
 }

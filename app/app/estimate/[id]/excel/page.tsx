@@ -1,5 +1,6 @@
 "use client";
 import FileDropZone from "@/components/FileDropZone";
+import RowMaterialSelect from "@/components/RowMaterialSelect";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -63,6 +64,7 @@ export default function ExcelImportPage() {
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [sheetOn, setSheetOn] = useState<Record<string, boolean>>({});
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [discipline, setDiscipline] = useState("electrical");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [existingBomCount, setExistingBomCount] = useState(0);
   const [replace, setReplace] = useState(false);
@@ -153,13 +155,14 @@ export default function ExcelImportPage() {
     }
   }
 
-  async function processResult(d: { rows?: ApiRow[]; materials?: Material[]; sheets?: SheetInfo[]; warnings?: string[]; existingBomCount?: number; needMapping?: boolean }) {
+  async function processResult(d: { discipline?: string; rows?: ApiRow[]; materials?: Material[]; sheets?: SheetInfo[]; warnings?: string[]; existingBomCount?: number; needMapping?: boolean }) {
     try {
       if (d.needMapping) setShowMapper(true);
       const apiRows: ApiRow[] = d.rows ?? [];
       const mats: Material[] = d.materials ?? [];
       const sh: SheetInfo[] = d.sheets ?? [];
       setMaterials(mats);
+      if (d.discipline) setDiscipline(d.discipline);
       setSheets(sh);
       setWarnings(d.warnings ?? []);
       setExistingBomCount(d.existingBomCount ?? 0);
@@ -429,17 +432,12 @@ export default function ExcelImportPage() {
                         <td className="p-2 text-right text-gray-500">{r.origPrice != null ? won(r.origPrice) : "-"}</td>
                         <td className="p-2"><Badge method={r.method} score={r.score} /></td>
                         <td className="p-2">
-                          <select
-                            value={r.materialId}
-                            onChange={(e) => updateRow(r.rid, { materialId: e.target.value, include: e.target.value !== "" })}
-                            className="border rounded px-1.5 py-1 text-xs w-48"
-                          >
-                            <option value="">선택 안 함</option>
-                            <option value="new">＋ 새 자재로 등록{r.origPrice != null ? ` (${won(r.origPrice)}원)` : ""}</option>
-                            {materials.map((m) => (
-                              <option key={m.id} value={m.id}>{m.name} {m.spec} ({m.unit})</option>
-                            ))}
-                          </select>
+                          <RowMaterialSelect
+                            discipline={discipline} value={r.materialId} known={materials}
+                            onChange={(id) => updateRow(r.rid, { materialId: id, include: id !== "" })}
+                            onPick={(m) => setMaterials((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m as Material]))}
+                            extra={<option value="new">＋ 새 자재로 등록{r.origPrice != null ? ` (${won(r.origPrice)}원)` : ""}</option>}
+                          />
                           {um && <div className="text-[10px] text-amber-700 mt-0.5">⚠ 단위 다름: 원본 {r.unit} → 자재 {um.unit}</div>}
                         </td>
                         <td className="p-2">

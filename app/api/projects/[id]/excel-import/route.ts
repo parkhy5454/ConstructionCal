@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/currentUser";
 import { getProjectOwned, getMaterials, getExcelMappings, getProjectBom } from "@/lib/estimateData";
 import { parsePdfBoq } from "@/lib/pdfImport";
 import { parseExcelBoq, previewExcel, type ColumnMapping } from "@/lib/excelImport";
-import { matchRows } from "@/lib/excelMatch";
+import { matchRows, pickSuggested } from "@/lib/excelMatch";
 import type { Discipline } from "@/lib/calc";
 
 export const runtime = "nodejs";
@@ -102,6 +102,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     needMapping: !isPdf && parsed.sheets.length === 0,
     rawText: isPdf && parsed.rows.length === 0 ? rawText : undefined,
     existingBomCount: bom.length,
-    materials: materials.map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
+    discipline,
+    // 자재가 수만 개일 수 있어 제안된 자재만 보내고, 나머지는 화면에서 검색으로 고릅니다.
+    materials: pickSuggested(materials, matches).map((m) => ({ id: m.id, name: m.name, spec: m.spec, unit: m.unit, price: m.price })),
   });
 }

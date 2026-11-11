@@ -1,4 +1,5 @@
 "use client";
+import RowMaterialSelect from "@/components/RowMaterialSelect";
 import FileDropZone from "@/components/FileDropZone";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -43,6 +44,7 @@ export default function DxfImportPage() {
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [discipline, setDiscipline] = useState("electrical");
   const [unsupported, setUnsupported] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -102,6 +104,7 @@ export default function DxfImportPage() {
       }
       const groups: Group[] = d.groups ?? [];
       setMaterials(d.materials ?? []);
+      if (d.discipline) setDiscipline(d.discipline);
       setUnsupported(d.unsupported ?? []);
 
       const builtRows: Row[] = groups.map((g) => ({
@@ -243,16 +246,11 @@ export default function DxfImportPage() {
                         {r.kind === "length" ? `${r.rawQty.toLocaleString()} (길이)` : `${r.rawQty.toLocaleString()}개`}
                       </td>
                       <td className="p-2">
-                        <select
-                          value={r.materialId}
-                          onChange={(e) => updateRow(r.key, { materialId: e.target.value })}
-                          className="border rounded px-1.5 py-1 text-xs w-40"
-                        >
-                          <option value="">선택 안 함</option>
-                          {materials.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name} {m.spec}</option>
-                          ))}
-                        </select>
+                        <RowMaterialSelect
+                          discipline={discipline} value={r.materialId} known={materials} className="border rounded px-1.5 py-1 text-xs w-40"
+                          onChange={(id) => updateRow(r.key, { materialId: id })}
+                          onPick={(m) => setMaterials((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m as Material]))}
+                        />
                       </td>
                       <td className="p-2">
                         <input

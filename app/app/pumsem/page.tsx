@@ -1,4 +1,5 @@
 "use client";
+import MaterialPicker from "@/components/MaterialPicker";
 import { useEffect, useState, useCallback } from "react";
 import { computeIlwidaega, fmt } from "@/lib/calc";
 import type { Material, LaborRate, Pumsem, Discipline } from "@/lib/calc";
@@ -19,10 +20,18 @@ export default function PumsemPage() {
   const load = useCallback(async (d: Discipline) => {
     setLoading(true);
     // 처음 여는 업종은 자재를 먼저 불러 기본 데이터가 준비된 뒤 노임·품셈을 읽습니다(동시 시드 충돌 방지).
-    const mRes = await fetch(`/api/materials?discipline=${d}`);
+    await fetch(`/api/materials?discipline=${d}&limit=1`);
     const [lRes, pRes] = await Promise.all([fetch(`/api/labor-rates?discipline=${d}`), fetch(`/api/pumsem?discipline=${d}`)]);
-    const [mData, lData, pData] = await Promise.all([mRes.json(), lRes.json(), pRes.json()]);
-    setMaterials(mData.materials ?? []);
+    const [lData, pData] = await Promise.all([lRes.json(), pRes.json()]);
+    const prows: Array<{ materialId: number }> = pData.pumsem ?? [];
+    // 자재가 수만 개일 수 있어, 품셈이 등록된 자재만 id로 불러옵니다.
+    const ids = Array.from(new Set(prows.map((r) => r.materialId)));
+    const mats: Material[] = [];
+    for (let i = 0; i < ids.length; i += 1000) {
+      const r = await fetch(`/api/materials?discipline=${d}&ids=${ids.slice(i, i + 1000).join(",")}`);
+      mats.push(...((await r.json()).materials ?? []));
+    }
+    setMaterials(mats);
     setLaborRates(lData.laborRates ?? []);
     setRows(pData.pumsem ?? []);
     setLoading(false);
@@ -62,7 +71,6 @@ export default function PumsemPage() {
   const matById = new Map(materials.map((m) => [m.id, m]));
   const laborById = new Map(laborRates.map((l) => [l.code, l]));
   const ild = computeIlwidaega(materials, rows, laborRates);
-  const matIdsInPumsem = new Set(rows.map((r) => r.materialId));
 
   return (
     <div className="space-y-5">
@@ -105,12 +113,7 @@ export default function PumsemPage() {
               </tbody>
             </table>
             <form onSubmit={addRow} className="flex flex-wrap gap-2 items-center p-3 border-t">
-              <select value={form.materialId} onChange={(e) => setForm({ ...form, materialId: e.target.value })} className="border rounded-lg px-2 py-1.5 text-xs flex-1 min-w-[160px]">
-                <option value="">자재 선택 (품셈 미등록)...</option>
-                {materials.filter((m) => !matIdsInPumsem.has(m.id)).map((m) => (
-                  <option key={m.id} value={m.id}>{m.name} ({m.spec || m.unit})</option>
-                ))}
-              </select>
+              <MaterialPicker discipline={discipline} value={form.materialId} onChange={(id) => setForm({ ...form, materialId: id })} />
               <select value={form.laborCode} onChange={(e) => setForm({ ...form, laborCode: e.target.value })} className="border rounded-lg px-2 py-1.5 text-xs w-28">
                 <option value="">직종 선택</option>
                 {laborRates.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}

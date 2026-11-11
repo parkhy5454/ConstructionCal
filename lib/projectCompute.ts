@@ -2,7 +2,7 @@
 import { inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import { bomItems } from "./schema";
-import { getMaterials, getLaborRates, getPumsem, getRateSettings, getProjectBom } from "./estimateData";
+import { getMaterialsByIds, getLaborRates, getPumsemForMaterials, getRateSettings, getProjectBom } from "./estimateData";
 import { getMeta, getMetaMap, type Meta } from "./projectMeta";
 import { computeAll, DISCIPLINES, type Discipline, type ComputeResult, type Material, type BomItem } from "./calc";
 
@@ -10,12 +10,14 @@ export type ProjectLike = { id: number; userId: number; discipline: string; name
 
 export async function computeProject(project: ProjectLike) {
   const discipline = project.discipline as Discipline;
-  const [materials, laborRates, pum, rates, bom, meta] = await Promise.all([
-    getMaterials(project.userId, discipline),
+  // 자재 DB가 수만 건이어도 빠르도록, 이 견적서에 쓰인 자재·품셈만 읽습니다.
+  const bom = await getProjectBom(project.id);
+  const ids = bom.map((b) => b.materialId);
+  const [materials, laborRates, pum, rates, meta] = await Promise.all([
+    getMaterialsByIds(project.userId, discipline, ids),
     getLaborRates(project.userId, discipline),
-    getPumsem(project.userId, discipline),
+    getPumsemForMaterials(project.userId, ids),
     getRateSettings(project.userId, discipline),
-    getProjectBom(project.id),
     getMeta(project.id),
   ]);
   const result = computeAll(materials, pum, laborRates, rates, bom, meta.surcharges);
@@ -43,8 +45,9 @@ export async function computeTotals(userId: number, list: Array<{ id: number; di
   for (const d of DISCIPLINES) {
     const group = list.filter((p) => p.discipline === d);
     if (group.length === 0) continue;
+    const ids = group.flatMap((p) => (bomByProject.get(p.id) ?? []).map((b) => b.materialId));
     const [materials, laborRates, pum, rates] = await Promise.all([
-      getMaterials(userId, d), getLaborRates(userId, d), getPumsem(userId, d), getRateSettings(userId, d),
+      getMaterialsByIds(userId, d, ids), getLaborRates(userId, d), getPumsemForMaterials(userId, ids), getRateSettings(userId, d),
     ]);
     for (const p of group) {
       const bom = bomByProject.get(p.id) ?? [];

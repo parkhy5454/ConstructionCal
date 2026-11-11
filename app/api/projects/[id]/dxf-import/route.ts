@@ -65,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     groups,
     unsupported: parsed.unsupported,
     totalEntities: parsed.totalEntities,
-    materials,
+    discipline,
+    materials: materials.filter((m) => groups.some((g) => g.suggestedMaterialId === m.id)),
   });
 }
