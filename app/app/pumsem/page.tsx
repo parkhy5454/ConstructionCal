@@ -1,6 +1,5 @@
 "use client";
 import MaterialPicker from "@/components/MaterialPicker";
-import PumsemBook from "@/components/PumsemBook";
 import { useEffect, useState, useCallback } from "react";
 import { computeIlwidaega, fmt } from "@/lib/calc";
 import type { Material, LaborRate, Pumsem, Discipline } from "@/lib/calc";
@@ -144,11 +143,8 @@ export default function PumsemPage() {
             {error && <p className="text-xs text-red-600 px-3 pb-2">{error}</p>}
           </section>
 
-          <PumsemBook discipline={discipline} onApplied={() => load(discipline)} />
-
           <section className="bg-white border rounded-xl p-4">
             <h2 className="text-sm font-bold mb-1">일위대가 (자동 결합)</h2>
-            <p className="text-xs text-gray-400 mb-3">자재단가 × 품셈공수 × 노임단가를 결합한 품목 1단위당 금액입니다.</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
