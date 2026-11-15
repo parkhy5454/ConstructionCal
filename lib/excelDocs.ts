@@ -43,13 +43,16 @@ function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", wid
   return Math.min(1, targetPx / Math.max(curPx, 1)); // 한 페이지 너비에 맞추려고 줄어드는 배율
 }
 
-/** 표가 한 장 안에 들어갈 때, 아래 여백(25mm) 선까지 닿도록 채울 수 있는 빈 행(22pt) 수. startRow부터 reserve(pt)는 뒤에 올 행을 위해 남깁니다. */
+/** 표가 한 장 안에 들어갈 때, 아래 여백 선까지 닿도록 채울 수 있는 빈 행(22pt) 수. startRow부터 reserve(pt)는 뒤에 올 행을 위해 남깁니다. */
 function blankRowsToFill(ws: ExcelJS.Worksheet, startRow: number, orientation: "landscape" | "portrait", scale: number, reserve: number): number[] {
   const availPt = (((orientation === "landscape" ? 210 : 297) - 2 * MARGIN_Y_MM) / 25.4) * 72 / scale - 3;
   let used = 0;
   for (let i = 1; i < startRow; i++) { const row = ws.getRow(i); if (!row.height) row.height = 18; used += row.height; } // 높이가 비어 있는 행은 프로그램마다 달라 18pt로 고정
-  if (used + reserve > availPt) return []; // 이미 한 장을 넘음
-  const left = availPt - used - reserve;
+  // 여러 장이면 마지막 장에 남은 높이만 채웁니다.
+  let rem = used - Math.floor(used / availPt) * availPt;
+  if (rem === 0 && used > 0) rem = availPt;
+  const left = availPt - rem - reserve;
+  if (left < 8) return [];
   const hs = Array.from({ length: Math.floor(left / 22) }, () => 22);
   const rest = left - hs.length * 22;
   if (rest >= 8) hs.push(Math.floor(rest)); // 남는 높이는 마지막 빈 행이 채워 아래 여백 선에 맞춥니다
@@ -85,6 +88,10 @@ function put(ws: ExcelJS.Worksheet, r: number, c: number, v: ExcelJS.CellValue, 
 function paint(ws: ExcelJS.Worksheet, r: number, c1: number, c2: number, fill?: ExcelJS.Fill) {
   for (let c = c1; c <= c2; c++) { const cell = ws.getCell(r, c); cell.border = BORDER; if (fill) cell.fill = fill; }
 }
+function padLast(ws: ExcelJS.Worksheet, r: number, cols: number, scale: number, reserve = 0): number {
+  for (const h of blankRowsToFill(ws, r, "landscape", scale, reserve)) { for (let c = 1; c <= cols; c++) put(ws, r, c, null); ws.getRow(r).height = h; r++; }
+  return r;
+}
 const head = (ws: ExcelJS.Worksheet, r: number, c: number, v: string) => put(ws, r, c, v, { bold: true, fill: HEAD_FILL, align: "center", wrap: true });
 const nz = (n: number) => (Math.abs(n) < 1e-9 ? null : n);
 const merge = (ws: ExcelJS.Worksheet, r1: number, c1: number, r2: number, c2: number) => ws.mergeCells(r1, c1, r2, c2);
@@ -105,7 +112,7 @@ const moneyW = [10, 12, 10, 12, 10, 12, 10, 12, 12]; // 단가/금액×4 + 비�
 
 function sheet1(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [30, 40, 8, 12, 16]);
+  const scale = setup(ws, "landscape", [30, 40, 8, 12, 16]);
   title(ws, "수 량 집 계 표", 5, sub);
   let r = 4;
   head(ws, r, 1, "품 목"); head(ws, r, 2, "규 격"); head(ws, r, 3, "단위"); head(ws, r, 4, "수 량"); head(ws, r, 5, "비 고");
@@ -119,13 +126,14 @@ function sheet1(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
       r++;
     }
   }
+  r = padLast(ws, r, 5, scale);
   ws.pageSetup.printArea = `A1:E${r - 1}`;
   ws.views = [{ showGridLines: false, state: "frozen", ySplit: 4 }];
 }
 
 function sheet2(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [12, 28, 36, 8, 12, 12, 12, 14, 14]);
+  const scale = setup(ws, "landscape", [12, 28, 36, 8, 12, 12, 12, 14, 14]);
   title(ws, "단 가 대 비 표", 9, sub);
   let r = 4;
   ["번 호", "품 명", "규 격", "단위", "물가정보 Page", "A 사", "B 사", "적용단가", "비 고"].forEach((t, i) => head(ws, r, i + 1, t));
@@ -139,12 +147,13 @@ function sheet2(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
   docs.priceTable.materials.forEach((m) => row(m.no, m.name, m.spec, m.unit, m.price));
   if (docs.priceTable.labors.length) r++;
   docs.priceTable.labors.forEach((m) => row(m.no, m.name, "", m.unit, m.price));
+  r = padLast(ws, r, 9, scale);
   ws.pageSetup.printArea = `A1:I${Math.max(r - 1, 5)}`;
 }
 
 function sheet3(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [22, 30, 8, 9, ...moneyW]);
+  const scale = setup(ws, "landscape", [22, 30, 8, 9, ...moneyW]);
   title(ws, "일 위 대 가 표", 13, sub);
   let r = moneyHead(ws, 4, ["품 명", "규 격", "단위", "수 량"]);
   if (docs.ilwi.length === 0) { merge(ws, r, 1, r, 13); put(ws, r, 1, "노무(공수)가 반영된 품목이 없어 일위대가가 없습니다.", { align: "center" }); r++; }
@@ -167,12 +176,13 @@ function sheet3(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
     put(ws, r, 10, nz(b.total.expense), { bold: true, fill: TOT_FILL, fmt: NUM }); put(ws, r, 12, nz(b.total.sum), { bold: true, fill: TOT_FILL, fmt: NUM });
     r += 2;
   }
+  r = padLast(ws, r, 13, scale);
   ws.pageSetup.printArea = `A1:M${r - 1}`;
 }
 
 function sheet4(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [11, 22, 30, 8, 8, ...moneyW]);
+  const scale = setup(ws, "landscape", [11, 22, 30, 8, 8, ...moneyW]);
   title(ws, "일 위 대 가 표 목 록", 14, sub);
   let r = moneyHead(ws, 4, ["호 표", "품 명", "규 격", "단위", "수 량"]);
   for (const b of docs.ilwi) {
@@ -182,12 +192,13 @@ function sheet4(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
     put(ws, r, 14, "");
     r++;
   }
+  r = padLast(ws, r, 14, scale);
   ws.pageSetup.printArea = `A1:N${Math.max(r - 1, 6)}`;
 }
 
 function sheet5(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [22, 36, 7, 9, ...moneyW]);
+  const scale = setup(ws, "landscape", [22, 36, 7, 9, ...moneyW]);
   title(ws, "공 사 예 산 내 역 서", 13, sub);
   let r = moneyHead(ws, 4, ["품 명", "규 격", "단위", "수 량"]);
   for (const g of docs.detail) {
@@ -206,6 +217,7 @@ function sheet5(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
     put(ws, r, 10, nz(g.total.expense), { bold: true, fill: TOT_FILL, fmt: NUM }); put(ws, r, 12, nz(g.total.sum), { bold: true, fill: TOT_FILL, fmt: NUM });
     r += 2;
   }
+  r = padLast(ws, r, 13, scale, 18);
   ws.getCell(r, 1).value = "* 노무비 단가는 표준품셈 공수 × 노임단가, 경비는 공구손료(노무비 기준)입니다. 품셈이 없는 품목은 재료비만 반영됩니다.";
   ws.getCell(r, 1).font = { name: FONT, size: 9, color: { argb: "FF666666" } };
   ws.pageSetup.printArea = `A1:M${r}`;
