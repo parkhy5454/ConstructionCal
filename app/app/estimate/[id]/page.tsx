@@ -246,7 +246,7 @@ export default function EstimateDetailPage() {
             {noLaborItems.length}개 품목은 표준품셈(공수)이 등록되어 있지 않아 <b>재료비만 반영</b>되고 노무비는 0원으로 계산됩니다
             ({noLaborItems.slice(0, 3).map((i) => i.name).join(", ")}{noLaborItems.length > 3 ? " 등" : ""}).
             설치 노무가 필요한 품목이면 아래에서 바로 공수를 입력하세요(표준품셈에 저장됩니다).
-            <FixLabor items={noLaborUnique} laborRates={laborRates} onSaved={load} />
+            <FixLabor items={noLaborUnique} laborRates={laborRates} discipline={project.discipline} onSaved={load} />
           </div>
         )}
         <div className="overflow-x-auto">

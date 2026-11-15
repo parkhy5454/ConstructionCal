@@ -2,6 +2,7 @@ import fs from "fs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
+import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
 import { searchPriceItems, importPriceRows } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
@@ -43,6 +44,11 @@ async function main() {
   ok(tel.total === 1 && tel.rows[0].code === "9", "첫 묶음은 그 업종 기존 항목을 교체");
   ok((await searchPumsemItems("electrical", "", 10, 0, db)).total === 2, "다른 업종은 영향 없음");
   ok(toPumsemRow("fire", { title: "x", labors: [{ name: "a", factor: -1 }] }) === null, "음수 공수는 무시");
+  ok(nameTokens("강제전선관(노출) 아연도").join() === "강제전선관,노출,아연도", "품명 낱말 분리");
+  ok(scoreItem(["전선관"], ["28"], { chapter: "", section: "", title: "후강전선관 배관", spec: "28mm" }) === 5, "이름 3점 + 규격 숫자 2점");
+  ok(scoreItem(["전선관"], ["28"], { chapter: "", section: "", title: "케이블", spec: "28" }) === 0, "이름이 안 맞으면 0점");
+  const sg = await suggestPumsem("electrical", "전선관", "28 mm", 3, db);
+  ok(Array.isArray(sg), "추천 조회가 오류 없이 배열 반환");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
     { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
     { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },
