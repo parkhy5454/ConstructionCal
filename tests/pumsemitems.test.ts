@@ -47,6 +47,8 @@ async function main() {
   ok(nameTokens("강제전선관(노출) 아연도").join() === "강제전선관,노출,아연도", "품명 낱말 분리");
   ok(scoreItem(["전선관"], ["28"], { chapter: "", section: "", title: "후강전선관 배관", spec: "28mm" }) === 5, "이름 3점 + 규격 숫자 2점");
   ok(scoreItem(["전선관"], ["28"], { chapter: "", section: "", title: "케이블", spec: "28" }) === 0, "이름이 안 맞으면 0점");
+  const sg2 = await suggestPumsem("electrical", "강제전선관(노출) 아연도", "28 mm", 3, db);
+  ok(sg2.length >= 1 && sg2[0].item.title.includes("후강전선관") && sg2[0].item.spec === "28mm", "별칭: 강제전선관(아연도) → 후강전선관 28mm 후보");
   const sg = await suggestPumsem("electrical", "전선관", "28 mm", 3, db);
   ok(Array.isArray(sg), "추천 조회가 오류 없이 배열 반환");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
