@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
 import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
-import { searchPriceItems, importPriceRows } from "../lib/priceItems";
+import { searchPriceItems, importPriceRows, adoptPriceItem } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
 let fails = 0;
@@ -59,6 +59,15 @@ async function main() {
   ok(f1.total === 1 && f1.rows[0].price === 1234500 && f1.rows[0].maker === "LS전선", "분류로 검색, 단가·제조사 반환");
   ok((await searchPriceItems("electrical", "bus duct 600a", 10, 0, db)).total === 1, "영문·여러 단어 모두 포함 검색");
   ok((await searchPriceItems("fire", "", 10, 0, db)).total === 0, "업종별로 분리");
+  ok((await searchPriceItems("electrical", "부스덕트 & 600a, ls전선", 10, 0, db)).total === 1, "& 와 쉼표는 검색어에서 무시");
+  const hid = (await searchPriceItems("electrical", "HGP50DS", 10, 0, db)).rows[0].id;
+  const a1 = await adoptPriceItem(7, "electrical", hid, db);
+  ok(!!a1 && a1.created && a1.price === 143800, "공용 단가표 → 내 자재로 담기(신규)");
+  await importPriceRows("electrical", "2026년 12월호", [{ name: "HGP50DS", spec: "3P", unit: "대", price: 150000 }], false, db);
+  const hid2 = (await searchPriceItems("electrical", "HGP50DS", 10, 0, db)).rows.find((r) => r.price === 150000)!.id;
+  const a2 = await adoptPriceItem(7, "electrical", hid2, db);
+  ok(!!a2 && !a2.created && a2.id === a1!.id && a2.price === 150000, "같은 자재는 새로 만들지 않고 단가만 갱신");
+  ok((await adoptPriceItem(8, "electrical", 999999, db)) === null, "없는 항목은 null");
   await importPriceRows("electrical", "다음달", [{ name: "새자재", unit: "개", price: 5 }], true, db);
   ok((await searchPriceItems("electrical", "", 10, 0, db)).total === 1, "다시 올리면 그 업종 기준표가 교체됨");
   if (fails) process.exit(1);

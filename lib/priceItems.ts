@@ -1,6 +1,6 @@
 import { and, eq, sql, asc } from "drizzle-orm";
 import { getDb } from "./db";
-import { priceItems } from "./schema";
+import { priceItems, materials } from "./schema";
 import { isMissingTable } from "./security";
 
 export type PriceItem = { id: number; category: string; name: string; spec: string; unit: string; price: number; maker: string; basis: string };
@@ -10,7 +10,7 @@ const num = (v: string | number | null | undefined): number => (v == null ? 0 : 
 
 /** 공용 단가표 검색 — 분류·품명·규격·제조사에 입력한 단어가 모두 들어 있는 항목(쪽 단위). 테이블이 아직 없으면 빈 결과. */
 export async function searchPriceItems(discipline: string, q: string, limit: number, offset: number, db: ReturnType<typeof getDb> = getDb()): Promise<{ rows: PriceItem[]; total: number; missing?: boolean }> {
-  const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const words = q.toLowerCase().replace(/[&,]/g, " ").split(/\s+/).filter(Boolean).slice(0, 6);
   const conds = [eq(priceItems.discipline, discipline as never)];
   for (const w of words) {
     conds.push(sql`lower(${priceItems.category} || ' ' || ${priceItems.name} || ' ' || ${priceItems.spec} || ' ' || ${priceItems.maker}) like ${"%" + w.replace(/[%_\\]/g, "\\$&") + "%"}`);
@@ -40,4 +40,25 @@ export async function importPriceRows(discipline: string, basis: string, rows: R
   const vals = rows.map((r) => toPriceRow(discipline, basis, r)).filter((v): v is NonNullable<typeof v> => v !== null);
   for (let i = 0; i < vals.length; i += 500) await db.insert(priceItems).values(vals.slice(i, i + 500));
   return { inserted: vals.length, skipped: rows.length - vals.length };
+}
+
+export type AdoptedMaterial = { id: number; category: string; name: string; spec: string; unit: string; price: number; created: boolean };
+
+/**
+ * 공용 단가표 항목을 사용자의 자재로 담습니다. 같은 품명·규격(제조사는 " [제조사]"로 규격 뒤에 붙임)·단위가 이미 있으면 단가만 갱신하고, 없으면 새로 만듭니다.
+ */
+export async function adoptPriceItem(userId: number, discipline: string, itemId: number, db: ReturnType<typeof getDb> = getDb()): Promise<AdoptedMaterial | null> {
+  const it = (await db.select().from(priceItems).where(and(eq(priceItems.id, itemId), eq(priceItems.discipline, discipline as never))).limit(1))[0];
+  if (!it) return null;
+  const name = it.name.slice(0, 200);
+  const spec = (it.maker ? `${it.spec} [${it.maker}]` : it.spec).trim().slice(0, 200);
+  const unit = (it.unit || "식").slice(0, 20);
+  const category = it.category.slice(0, 40);
+  const ex = (await db.select().from(materials).where(and(eq(materials.userId, userId), eq(materials.discipline, discipline as never), eq(materials.name, name), eq(materials.spec, spec), eq(materials.unit, unit))).limit(1))[0];
+  if (ex) {
+    await db.update(materials).set({ price: it.price, updatedAt: new Date() }).where(eq(materials.id, ex.id));
+    return { id: ex.id, category: ex.category, name, spec, unit, price: num(it.price), created: false };
+  }
+  const [row] = await db.insert(materials).values({ userId, discipline: discipline as never, category, name, spec, unit, price: it.price }).returning();
+  return { id: row.id, category, name, spec, unit, price: num(it.price), created: true };
 }

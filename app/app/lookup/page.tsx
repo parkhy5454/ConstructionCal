@@ -17,11 +17,21 @@ export default function LookupPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [itemTotal, setItemTotal] = useState(0);
   const [matMissing, setMatMissing] = useState(false);
+  const [added, setAdded] = useState<Record<number, string>>({});
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
   useEffect(() => { setOffset(0); }, [discipline, q, tab]);
+
+  async function adopt(itemId: number) {
+    setAdded((a) => ({ ...a, [itemId]: "담는 중..." }));
+    try {
+      const res = await fetch("/api/price-items/adopt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId }) });
+      const d = await res.json().catch(() => ({}));
+      setAdded((a) => ({ ...a, [itemId]: res.ok ? (d.material?.created ? "✓ 담음" : "✓ 단가 갱신") : (d.error ?? "실패") }));
+    } catch { setAdded((a) => ({ ...a, [itemId]: "실패" })); }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,7 +66,7 @@ export default function LookupPage() {
       <section className="bg-white border rounded-xl overflow-x-auto">
         {tab === "mat" ? (
           <table className="w-full text-xs">
-            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3 text-right">단가(원)</th><th className="py-2 px-3">제조사</th></tr></thead>
+            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3 text-right">단가(원)</th><th className="py-2 px-3">제조사</th><th className="py-2 px-3"></th></tr></thead>
             <tbody>
               {mats.map((m) => (
                 <tr key={m.id} className="border-t">
@@ -66,9 +76,12 @@ export default function LookupPage() {
                   <td className="py-1.5 px-3">{m.unit}</td>
                   <td className="py-1.5 px-3 text-right tabular-nums">{fmt(m.price)}</td>
                   <td className="py-1.5 px-3 text-gray-500">{m.maker}</td>
+                  <td className="py-1.5 px-3 text-right whitespace-nowrap">
+                    <button onClick={() => adopt(m.id)} className="text-[11px] border rounded px-2 py-0.5 hover:bg-gray-50">{added[m.id] ?? "내 자재로 담기"}</button>
+                  </td>
                 </tr>
               ))}
-              {!loading && mats.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-gray-400">{matMissing ? "공용 단가표가 아직 준비되지 않았습니다." : q ? "검색 결과가 없습니다." : "등록된 자재가 없습니다."}</td></tr>}
+              {!loading && mats.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-gray-400">{matMissing ? "공용 단가표가 아직 준비되지 않았습니다." : q ? "검색 결과가 없습니다." : "등록된 자재가 없습니다."}</td></tr>}
             </tbody>
           </table>
         ) : (

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 type M = { id: number; name: string; spec: string; unit: string; price?: number };
+type P = { id: number; name: string; spec: string; unit: string; price: number; maker: string };
 
 // 자재 검색 선택: 이름·규격·분류 일부(공백으로 여러 단어)를 입력하면 서버에서 검색해 후보 8개를 보여 주고, ↑↓ + Enter로 고릅니다.
 // 자재가 수만 개여도 느려지지 않도록 목록을 통째로 받지 않고 입력할 때마다(0.2초 뒤) 서버에 물어봅니다.
@@ -12,6 +13,7 @@ export default function MaterialPicker({ discipline, value, onChange, onPicked, 
   const [open, setOpen] = useState(false);
   const [idx, setIdx] = useState(0);
   const [list, setList] = useState<M[]>([]);
+  const [pub, setPub] = useState<P[]>([]);
   const [selected, setSelected] = useState<M | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
@@ -26,12 +28,24 @@ export default function MaterialPicker({ discipline, value, onChange, onPicked, 
       try {
         const res = await fetch(`/api/materials?discipline=${encodeURIComponent(discipline)}&limit=8&q=${encodeURIComponent(q)}`);
         const d = await res.json();
-        if (my === seq.current) { setList(d.materials ?? []); setIdx(0); }
+        let pubRows: P[] = [];
+        if (q.trim()) { // 내 자재에 없을 때를 위해 공용 단가표도 함께 찾습니다
+          try { const pr = await fetch(`/api/price-items?discipline=${encodeURIComponent(discipline)}&limit=6&q=${encodeURIComponent(q)}`); pubRows = (await pr.json()).rows ?? []; } catch { /* 공용 표 오류는 무시 */ }
+        }
+        if (my === seq.current) { setList(d.materials ?? []); setPub(pubRows); setIdx(0); }
       } catch { /* 네트워크 오류는 목록만 비워 둡니다 */ }
       if (my === seq.current) setBusy(false);
     }, q ? 200 : 0);
     return () => clearTimeout(t);
   }, [q, open, discipline]);
+
+  async function pickPub(p: P) {
+    try {
+      const res = await fetch("/api/price-items/adopt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId: p.id }) });
+      const d = await res.json();
+      if (res.ok && d.material) pick(d.material);
+    } catch { /* 실패하면 목록을 그대로 둡니다 */ }
+  }
 
   function pick(m: M) {
     setSelected(m);
@@ -62,7 +76,7 @@ export default function MaterialPicker({ discipline, value, onChange, onPicked, 
       {open && (
         <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border bg-white shadow-lg text-xs">
           {busy && list.length === 0 && <li className="px-2 py-2 text-gray-400">검색 중...</li>}
-          {!busy && list.length === 0 && <li className="px-2 py-2 text-gray-400">검색 결과가 없습니다.</li>}
+          {!busy && list.length === 0 && pub.length === 0 && <li className="px-2 py-2 text-gray-400">검색 결과가 없습니다.</li>}
           {list.map((m, i) => (
             <li
               key={m.id}
@@ -71,6 +85,12 @@ export default function MaterialPicker({ discipline, value, onChange, onPicked, 
               className={`px-2 py-1.5 cursor-pointer ${i === idx ? "bg-[#e3efe8]" : ""}`}
             >
               <span className="font-medium">{m.name}</span> <span className="text-gray-400">{m.spec} · {m.unit}</span>
+            </li>
+          ))}
+          {pub.length > 0 && <li className="px-2 py-1 text-[10px] text-gray-400 bg-gray-50 sticky top-0">공용 단가표 (고르면 내 자재에 추가됩니다)</li>}
+          {pub.map((p) => (
+            <li key={`p${p.id}`} onMouseDown={(e) => { e.preventDefault(); pickPub(p); }} className="px-2 py-1.5 cursor-pointer hover:bg-[#e3efe8]">
+              <span className="font-medium">{p.name}</span> <span className="text-gray-400">{p.spec}{p.maker ? ` [${p.maker}]` : ""} · {p.unit} · {p.price.toLocaleString("ko-KR")}원</span>
             </li>
           ))}
         </ul>
