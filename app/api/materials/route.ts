@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
   const limit = Math.min(Math.max(parseInt(sp.get("limit") ?? "50", 10) || 50, 1), 200);
   const offset = Math.max(parseInt(sp.get("offset") ?? "0", 10) || 0, 0);
-  const { rows, total } = await searchMaterials(user.id, discipline, (sp.get("q") ?? "").slice(0, 100), limit, offset);
+  const { rows, total } = await searchMaterials(user.id, discipline, (sp.get("q") ?? "").slice(0, 100), limit, offset, sp.get("sort") === "recent");
   return NextResponse.json({ materials: rows, total, limit, offset });
 }
 

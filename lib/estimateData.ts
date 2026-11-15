@@ -1,4 +1,4 @@
-import { eq, and, ne, sql, inArray, asc } from "drizzle-orm";
+import { eq, and, ne, sql, inArray, asc, desc } from "drizzle-orm";
 import { getDb } from "./db";
 import { materials, laborRates, pumsem, rateSettings, projects, bomItems, dxfMappings } from "./schema";
 import {
@@ -191,14 +191,14 @@ export async function getMaterialsByIds(userId: number, discipline: Discipline, 
 
 const likeEsc = (w: string) => w.replace(/[\\%_]/g, (c) => "\\" + c);
 // 이름·규격·분류에 검색어(공백으로 여러 단어, 모두 포함)가 들어 있는 자재를 쪽 단위로 반환합니다.
-export async function searchMaterials(userId: number, discipline: Discipline, q: string, limit: number, offset: number): Promise<{ rows: Material[]; total: number }> {
+export async function searchMaterials(userId: number, discipline: Discipline, q: string, limit: number, offset: number, recent = false): Promise<{ rows: Material[]; total: number }> {
   const db = getDb();
   const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
   const conds = [eq(materials.userId, userId), eq(materials.discipline, discipline)];
   for (const w of words) conds.push(sql`lower(${materials.category} || ' ' || ${materials.name} || ' ' || ${materials.spec}) LIKE ${"%" + likeEsc(w) + "%"}`);
   const where = and(...conds);
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(materials).where(where);
-  const rows = await db.select().from(materials).where(where).orderBy(asc(materials.category), asc(materials.name), asc(materials.spec), asc(materials.id)).limit(limit).offset(offset);
+  const rows = await db.select().from(materials).where(where).orderBy(...(recent ? [desc(materials.updatedAt), desc(materials.id)] : [asc(materials.category), asc(materials.name), asc(materials.spec), asc(materials.id)])).limit(limit).offset(offset);
   return { rows: rows.map((m) => ({ id: m.id, category: m.category, name: m.name, spec: m.spec, unit: m.unit, price: num(m.price) })), total: n };
 }
 

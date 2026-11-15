@@ -25,7 +25,7 @@ export default function PricesPage() {
   // 자재가 수만 개일 수 있어 검색어와 쪽 번호로 50개씩만 불러옵니다.
   const load = useCallback(async (d: Discipline, query = q, pg = page) => {
     setLoading(true);
-    const res = await fetch(`/api/materials?discipline=${d}&limit=${PAGE}&offset=${pg * PAGE}&q=${encodeURIComponent(query)}`);
+    const res = await fetch(`/api/materials?discipline=${d}&limit=${PAGE}&offset=${pg * PAGE}&q=${encodeURIComponent(query)}&sort=recent`);
     const data = await res.json();
     setRows(data.materials ?? []);
     setTotal(data.total ?? 0);
@@ -86,7 +86,7 @@ export default function PricesPage() {
       <div>
         <h1 className="text-lg font-bold">💰 내 자재 단가</h1>
         <p className="text-xs text-gray-400 mt-1">
-          내 계정의 자재와 단가입니다. 견적에는 이 목록의 자재가 쓰입니다. 종합물가정보 전체 품목은 왼쪽 메뉴 "자재·품셈 단가"에서 검색하고 "내 자재로 담기"로 가져오세요. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
+          내 계정의 자재와 단가입니다(최근에 담거나 수정한 자재가 위에 나옵니다). 견적에는 이 목록의 자재가 쓰입니다. 종합물가정보 전체 품목은 왼쪽 메뉴 "자재·품셈 단가"에서 검색하고 "내 자재로 담기"로 가져오세요. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
         </p>
       </div>
 
