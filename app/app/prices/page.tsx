@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { Material, Discipline } from "@/lib/calc";
+import ManageTabs from "@/app/app/ManageTabs";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
 export default function PricesPage() {
@@ -109,9 +110,7 @@ export default function PricesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-lg font-bold">💰 내 자재 단가</h1>
-      </div>
+      <ManageTabs />
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 

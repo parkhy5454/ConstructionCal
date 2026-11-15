@@ -4,6 +4,7 @@ import PumsemBook from "@/components/PumsemBook";
 import { useEffect, useState, useCallback } from "react";
 import { computeIlwidaega, fmt } from "@/lib/calc";
 import type { Material, LaborRate, Pumsem, Discipline } from "@/lib/calc";
+import ManageTabs from "@/app/app/ManageTabs";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
 export default function PumsemPage() {
@@ -75,9 +76,7 @@ export default function PumsemPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-bold">📐 표준품셈</h1>
-      </div>
+      <ManageTabs />
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 

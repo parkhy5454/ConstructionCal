@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import type { LaborRate, RateSettings, Discipline } from "@/lib/calc";
+import ManageTabs from "@/app/app/ManageTabs";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
 const RATE_LABELS: Record<keyof RateSettings, string> = {
@@ -77,16 +77,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-lg font-bold">🧰 내 자재 관리</h1>
-
-      <section className="grid sm:grid-cols-2 gap-2">
-        <Link href="/app/prices" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
-          <div className="text-sm font-semibold">💰 내 자재 단가</div>
-        </Link>
-        <Link href="/app/pumsem" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
-          <div className="text-sm font-semibold">📐 내 표준품셈</div>
-        </Link>
-      </section>
+      <ManageTabs />
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 

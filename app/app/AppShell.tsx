@@ -9,7 +9,7 @@ const NAV: NavItem[] = [
   { href: "/app/home", label: "홈", icon: "🏠" },
   { href: "/app/estimate", label: "견적서", icon: "📄" },
   { href: "/app/lookup", label: "자재·품셈 단가", icon: "🔎" },
-  { href: "/app/settings", label: "내 자재 관리", icon: "🧰", also: ["/app/prices", "/app/pumsem"] },
+  { href: "/app/prices", label: "내 자재 관리", icon: "🧰", also: ["/app/pumsem", "/app/settings"] },
 ];
 
 export default function AppShell({
