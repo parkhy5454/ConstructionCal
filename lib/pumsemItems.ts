@@ -82,3 +82,32 @@ export async function applyPumsemItem(userId: number, discipline: string, materi
   }
   return { applied, createdLabor };
 }
+
+export type RawPumsemRow = { code?: unknown; chapter?: unknown; section?: unknown; title?: unknown; spec?: unknown; unit?: unknown; page?: unknown; note?: unknown; review?: unknown; labors?: unknown };
+
+/** 업로드된 JSON 한 줄을 pumsem_items 행으로 정리합니다. 직종 공수가 하나도 없는 줄은 건너뜁니다(null 반환). */
+export function toPumsemRow(discipline: string, r: RawPumsemRow): typeof pumsemItems.$inferInsert | null {
+  const s = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+  const labors = Array.isArray(r.labors) ? r.labors : [];
+  const clean = labors
+    .map((l: { name?: unknown; factor?: unknown }) => ({ name: String(l?.name ?? "").trim(), factor: Number(l?.factor) }))
+    .filter((l: { name: string; factor: number }) => l.name && isFinite(l.factor) && l.factor >= 0);
+  if (clean.length === 0) return null;
+  return {
+    discipline: discipline as never,
+    code: s(r.code, 40), chapter: s(r.chapter, 160), section: s(r.section, 200),
+    title: s(r.title, 300) || "(제목 없음)", spec: s(r.spec, 500), unit: s(r.unit, 40),
+    page: Number.isInteger(r.page) ? (r.page as number) : null,
+    note: s(r.note, 2000),
+    review: Array.isArray(r.review) ? r.review.map(String).join("; ").slice(0, 2000) : s(r.review, 2000),
+    labors: JSON.stringify(clean),
+  };
+}
+
+/** 한 묶음(chunk)을 적재합니다. replace=true(첫 묶음)면 그 업종의 기존 항목을 먼저 지웁니다. */
+export async function importPumsemRows(discipline: string, rows: RawPumsemRow[], replace: boolean, db: ReturnType<typeof getDb> = getDb()): Promise<{ inserted: number; skipped: number }> {
+  if (replace) await db.delete(pumsemItems).where(eq(pumsemItems.discipline, discipline as never));
+  const vals = rows.map((r) => toPumsemRow(discipline, r)).filter((v): v is NonNullable<typeof v> => v !== null);
+  for (let i = 0; i < vals.length; i += 400) await db.insert(pumsemItems).values(vals.slice(i, i + 400));
+  return { inserted: vals.length, skipped: rows.length - vals.length };
+}

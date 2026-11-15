@@ -127,6 +127,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
       <h1 className="text-xl font-bold mb-6">관리자 · 가입자 관리</h1>
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {notice && <p className="text-sm text-green-700 mb-3">{notice}</p>}
+      <PumsemUpload />
       {overview && <OverviewPanel ov={overview} onDone={async (id, status) => {
         await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inquiryId: id, status }) });
         load();
@@ -276,6 +277,51 @@ function OverviewPanel({ ov, onDone }: { ov: Overview; onDone: (id: number, stat
           </ul>
         )}
       </div>
+    </section>
+  );
+}
+
+function PumsemUpload() {
+  const [disc, setDisc] = useState<string>("electrical");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!confirm(`${DISCIPLINE_LABELS[disc as keyof typeof DISCIPLINE_LABELS]} 표준품셈 책을 이 파일로 교체합니다. 기존 책 항목은 삭제됩니다(사용자의 자재별 품셈은 그대로). 계속할까요?`)) return;
+    setBusy(true); setMsg("읽는 중...");
+    try {
+      const lines = (await f.text()).split("\n").filter((l) => l.trim());
+      const rows = lines.map((l) => JSON.parse(l));
+      let done = 0, skipped = 0;
+      for (let i = 0; i < rows.length; i += 800) {
+        const res = await fetch("/api/admin/pumsem-items", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ discipline: disc, rows: rows.slice(i, i + 800), first: i === 0 }),
+        });
+        const d = await res.json();
+        if (!res.ok) { setMsg(`실패: ${d.error ?? res.status} (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return; }
+        done += d.inserted; skipped += d.skipped;
+        setMsg(`올리는 중... ${Math.min(i + 800, rows.length).toLocaleString()} / ${rows.length.toLocaleString()}`);
+      }
+      setMsg(`완료: ${done.toLocaleString()}건 등록${skipped ? `, 공수가 없어 ${skipped}건 제외` : ""}`);
+    } catch {
+      setMsg("파일을 읽을 수 없습니다. jsonl(한 줄에 JSON 하나) 형식인지 확인하세요.");
+    }
+    setBusy(false);
+  }
+  return (
+    <section className="mb-6 border rounded-xl p-4 space-y-2">
+      <h2 className="text-sm font-semibold">표준품셈 책 올리기</h2>
+      <p className="text-xs text-gray-500">업종을 고르고 jsonl 파일을 선택하면 그 업종의 표준품셈 책이 교체됩니다. 먼저 DB 마이그레이션(0010)이 필요합니다.</p>
+      <div className="flex items-center gap-2">
+        <select value={disc} onChange={(e) => setDisc(e.target.value)} className="border rounded px-2 py-1 text-xs">
+          {DISCIPLINES.map((d) => <option key={d} value={d}>{DISCIPLINE_LABELS[d]}</option>)}
+        </select>
+        <input type="file" accept=".jsonl,.json,.txt" onChange={onFile} disabled={busy} className="text-xs" />
+      </div>
+      {msg && <p className="text-xs text-blue-700">{msg}</p>}
     </section>
   );
 }
