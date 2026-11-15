@@ -84,9 +84,9 @@ export default function PricesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-bold">💰 물가정보</h1>
+        <h1 className="text-lg font-bold">💰 내 자재 단가</h1>
         <p className="text-xs text-gray-400 mt-1">
-          자재단가 DB. 실제 서비스에서는 매월 구매한 물가자료(종합물가정보 등)로 이 표의 단가를 교체합니다. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
+          내 계정의 자재와 단가입니다. 견적에는 이 목록의 자재가 쓰입니다. 종합물가정보 전체 품목은 왼쪽 메뉴 "자재·품셈 단가"에서 검색하고 "내 자재로 담기"로 가져오세요. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
         </p>
       </div>
 
