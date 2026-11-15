@@ -68,7 +68,6 @@ export default function LookupPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-lg font-bold">🔎 자재·품셈 단가</h1>
-        <p className="text-xs text-gray-400 mt-1">물가정보 전 품목의 규격·단가와 표준품셈의 공종별 공수를 검색해서 확인합니다. 여러 단어는 띄어 쓰면 모두 포함된 항목만 나옵니다.</p>
       </div>
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="예: 차단기 3P 100A, HFIX 2.5, 후강전선관 28" className="w-full border rounded-lg px-3 py-2 text-sm bg-white" autoFocus />
