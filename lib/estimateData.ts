@@ -430,3 +430,26 @@ export async function deleteMaterialsByIds(userId: number, ids: number[], db: Re
   }
   return { deleted: del.length, kept: own.length - del.length };
 }
+
+/** 선택한 품셈(공수) 행을 지웁니다(내 것만). 자재는 그대로 둡니다. */
+export async function deletePumsemByIds(userId: number, ids: number[], db: ReturnType<typeof getDb> = getDb()): Promise<{ deleted: number }> {
+  const list = uniqIds(ids).slice(0, 5000);
+  let deleted = 0;
+  for (let i = 0; i < list.length; i += 500) {
+    const r = await db.delete(pumsem).where(and(eq(pumsem.userId, userId), inArray(pumsem.id, list.slice(i, i + 500)))).returning({ id: pumsem.id });
+    deleted += r.length;
+  }
+  return { deleted };
+}
+
+/** 한 업종의 내 품셈(공수)을 모두 지웁니다. 자재는 그대로 둡니다. */
+export async function deleteAllPumsem(userId: number, discipline: Discipline, db: ReturnType<typeof getDb> = getDb()): Promise<{ deleted: number }> {
+  const mats = await db.select({ id: materials.id }).from(materials).where(and(eq(materials.userId, userId), eq(materials.discipline, discipline)));
+  const ids = mats.map((m: { id: number }) => m.id);
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += 500) {
+    const r = await db.delete(pumsem).where(and(eq(pumsem.userId, userId), inArray(pumsem.materialId, ids.slice(i, i + 500)))).returning({ id: pumsem.id });
+    deleted += r.length;
+  }
+  return { deleted };
+}

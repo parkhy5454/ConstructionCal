@@ -16,6 +16,7 @@ export default function PumsemPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ materialId: "", laborCode: "", factor: "" });
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<number>>(new Set());
 
   useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
 
@@ -55,6 +56,18 @@ export default function PumsemPage() {
     await fetch(`/api/pumsem/${id}`, { method: "DELETE" });
     load(discipline);
   }
+  const toggle = (id: number) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  async function bulk(body: { ids?: number[]; all?: boolean }, msg: string) {
+    if (!confirm(msg)) return;
+    setBusy(true); setError(null);
+    const res = await fetch("/api/pumsem/bulk-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, discipline }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setError(d.error ?? "삭제 실패"); return; }
+    setSel(new Set());
+    setError(`${d.deleted ?? 0}건을 지웠습니다.`);
+    load(discipline);
+  }
   async function addRow(e: React.FormEvent) {
     e.preventDefault();
     if (!form.materialId || !form.laborCode) return;
@@ -87,9 +100,15 @@ export default function PumsemPage() {
       ) : (
         <>
           <section className="bg-white border rounded-xl overflow-x-auto">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b">
+              <span className="text-xs text-gray-400">{rows.length.toLocaleString()}건</span>
+              {sel.size > 0 && <button disabled={busy} onClick={() => bulk({ ids: Array.from(sel) }, `선택한 ${sel.size}건의 품셈을 지웁니다(자재는 그대로). 계속할까요?`)} className="text-[11px] bg-red-600 text-white rounded px-2 py-1 font-semibold">선택 {sel.size}건 삭제</button>}
+              {rows.length > 0 && <button disabled={busy} onClick={() => bulk({ all: true }, "이 업종의 내 품셈을 모두 지웁니다(자재는 그대로). 계속할까요?")} className="text-[11px] border rounded px-2 py-1 text-gray-500 hover:bg-gray-50">전체 삭제</button>}
+            </div>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-400 text-left bg-gray-50">
+                  <th className="py-2 px-3 w-8"><input type="checkbox" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} aria-label="전체 선택" /></th>
                   <th className="py-2 px-3">품명 / 규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3">직종</th>
                   <th className="py-2 px-3 text-right">단위당공수</th><th></th>
                 </tr>
@@ -99,6 +118,7 @@ export default function PumsemPage() {
                   const mat = matById.get(r.materialId);
                   return (
                     <tr key={r.id} className="border-t">
+                      <td className="py-1.5 px-3"><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} aria-label="선택" /></td>
                       <td className="py-1.5 px-3"><span className="font-medium">{mat?.name}</span> <span className="text-gray-400">{mat?.spec}</span></td>
                       <td className="py-1.5 px-3">{mat?.unit}</td>
                       <td className="py-1.5 px-3">{laborById.get(r.laborCode)?.name ?? r.laborCode}</td>

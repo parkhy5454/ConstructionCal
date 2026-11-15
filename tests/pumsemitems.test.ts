@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
 import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
-import { removeSampleMaterials, deleteMaterialsByIds } from "../lib/estimateData";
+import { removeSampleMaterials, deleteMaterialsByIds, deletePumsemByIds, deleteAllPumsem } from "../lib/estimateData";
 import { searchPriceItems, importPriceRows, adoptPriceItem } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
@@ -66,6 +66,14 @@ async function main() {
   const bd = await deleteMaterialsByIds(9, [...ids9, other[0].id], db);
   const rest10 = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 10));
   ok(bd.deleted === 1 && rest10.length === 1, "선택 삭제: 내 자재만 지우고 남의 자재는 건드리지 않음");
+  const m11 = await db.insert(schema.materials).values({ userId: 11, discipline: "electrical", name: "품셈자재", spec: "", unit: "m", price: "1" }).returning();
+  await db.insert(schema.pumsem).values([{ userId: 11, materialId: m11[0].id, laborCode: "L1", factor: "0.1" }, { userId: 11, materialId: m11[0].id, laborCode: "L2", factor: "0.2" }]);
+  const pr11 = await db.select().from(schema.pumsem).where(require("drizzle-orm").eq(schema.pumsem.userId, 11));
+  const d1 = await deletePumsemByIds(11, [pr11[0].id], db);
+  ok(d1.deleted === 1, "품셈 선택 삭제");
+  const d2 = await deleteAllPumsem(11, "electrical", db);
+  const mLeft = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 11));
+  ok(d2.deleted === 1 && mLeft.length === 1, "품셈 전체 삭제(자재는 남김)");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
     { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
     { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },
