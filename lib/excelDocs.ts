@@ -20,7 +20,7 @@ const SUB_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { a
 const TOT_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECECEC" } };
 const NUM = "#,##0";
 const NUM1 = "#,##0.###";
-const MARGIN_IN = 15 / 25.4;
+const MARGIN_IN = 25 / 25.4;
 const FONT = "맑은 고딕";
 
 function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", widths: number[]) {

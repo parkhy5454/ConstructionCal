@@ -4,7 +4,7 @@ import type { ComputeResult } from "@/lib/calc";
 import { won } from "@/components/EstimateTables";
 import { buildPrintDocs, koreanMoney, costBasis, type PrintDocs } from "@/lib/printDocs";
 
-export const PRINT_MARGIN_MM = 15;
+export const PRINT_MARGIN_MM = 25;
 
 export const PRINT_CSS = `
   @page landscape { size: A4 landscape; margin: ${PRINT_MARGIN_MM}mm; }
