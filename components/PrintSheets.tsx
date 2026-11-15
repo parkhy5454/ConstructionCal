@@ -4,14 +4,15 @@ import type { ComputeResult } from "@/lib/calc";
 import { won } from "@/components/EstimateTables";
 import { buildPrintDocs, koreanMoney, costBasis, type PrintDocs } from "@/lib/printDocs";
 
-export const PRINT_MARGIN_MM = 25;
+export const PRINT_MARGIN_X_MM = 20; // 좌우
+export const PRINT_MARGIN_Y_MM = 25; // 상하
 
 export const PRINT_CSS = `
-  @page landscape { size: A4 landscape; margin: ${PRINT_MARGIN_MM}mm; }
-  @page portrait { size: A4 portrait; margin: ${PRINT_MARGIN_MM}mm; }
+  @page landscape { size: A4 landscape; margin: ${PRINT_MARGIN_Y_MM}mm ${PRINT_MARGIN_X_MM}mm; }
+  @page portrait { size: A4 portrait; margin: ${PRINT_MARGIN_Y_MM}mm ${PRINT_MARGIN_X_MM}mm; }
   .sheet { background: #fff; color: #000; margin: 0 auto 16px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; overflow-x: auto; }
-  .sheet.landscape { page: landscape; max-width: calc(297mm - ${PRINT_MARGIN_MM * 2}mm + 32px); }
-  .sheet.portrait { page: portrait; max-width: calc(210mm - ${PRINT_MARGIN_MM * 2}mm + 32px); }
+  .sheet.landscape { page: landscape; max-width: calc(297mm - ${PRINT_MARGIN_X_MM * 2}mm + 32px); }
+  .sheet.portrait { page: portrait; max-width: calc(210mm - ${PRINT_MARGIN_X_MM * 2}mm + 32px); }
   .sheet .doc-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 10px; text-indent: 10px; margin: 4px 0 14px; }
   .sheet .doc-title span { border-bottom: 2px solid #000; padding: 0 6px 2px; }
   .sheet .doc-sub { font-size: 12px; font-weight: 700; margin: 0 0 4px; }
@@ -26,6 +27,10 @@ export const PRINT_CSS = `
   .sheet .blk { break-inside: avoid; margin-bottom: 8px; }
   .sheet tbody.blk { break-inside: avoid; }
   .sheet .gap td { border: none !important; height: 8px !important; padding: 0 !important; }
+  .printing .app-main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+  .printing .sheet { border: none !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; max-width: none !important; overflow: visible !important; }
+  .printing .sheet.landscape { width: ${297 - PRINT_MARGIN_X_MM * 2}mm; }
+  .printing .sheet.portrait { width: ${210 - PRINT_MARGIN_X_MM * 2}mm; }
   @media print {
     nav, header, .no-print { display: none !important; }
     .app-main { padding: 0 !important; max-width: none !important; margin: 0 !important; width: 100% !important; }
@@ -193,7 +198,7 @@ export function Sheet6Summary({ result }: { result: ComputeResult }) {
   const rows = result.groupResults;
   const filler = Math.max(0, 9 - rows.length);
   return (
-    <section className="sheet landscape">
+    <section className="sheet landscape" data-fit>
       <Title>집 계 표</Title>
       <table className="doc">
         <MoneyHead first={basicHead} />
@@ -245,7 +250,7 @@ export function Sheet7Estimate({ result, supplier, recipient, logo, seal, notes 
   ];
   const filler = notes.trim() ? 3 : 5;
   return (
-    <section className="sheet portrait">
+    <section className="sheet portrait" data-fit>
       <div className="gab">
         <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 14, textIndent: 14, padding: "10px 0", borderBottom: "1px solid #000", fontWeight: 500 }}>견 적 서</div>
         <div style={{ display: "flex", borderBottom: "1px solid #000" }}>

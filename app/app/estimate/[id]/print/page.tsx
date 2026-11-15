@@ -1,4 +1,5 @@
 "use client";
+import { installPrintFit } from "@/components/printFit";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -60,6 +61,8 @@ export default function PrintPage() {
     };
   }
 
+  useEffect(() => installPrintFit(), []);
+
   useEffect(() => {
     (async () => {
       const res = await fetch(`/api/projects/${params.id}`);
@@ -95,7 +98,7 @@ export default function PrintPage() {
           </button>
         </div>
         <p className="text-xs text-gray-400">
-          인쇄 창에서 대상을 &quot;PDF로 저장&quot;으로 고르세요. 1~6번은 A4 가로, 7번 견적서(갑지)는 A4 세로이며 여백은 사방 같게 맞춰집니다.
+          인쇄 창에서 대상을 &quot;PDF로 저장&quot;으로 고르세요. 1~6번은 A4 가로, 7번 견적서(갑지)는 A4 세로이며 여백은 위·아래 25mm, 좌·우 20mm로 맞춰지고, 집계표·견적서는 한 장일 때 아래 여백 선까지 빈 칸이 채워집니다.
           인쇄 창의 &quot;여백&quot;은 <b>기본값</b>, &quot;배율&quot;은 <b>100%</b>, &quot;머리글 및 바닥글&quot;은 <b>끄기</b>로 두세요. 크롬/엣지를 권장합니다.
         </p>
 

@@ -1,6 +1,6 @@
 // 제출용 문서 7종을 엑셀 7개 탭으로 만듭니다(웹의 "저장" 화면과 같은 내용·순서). 서버 전용(exceljs).
 // 금액은 buildPrintDocs/ComputeResult의 값을 그대로 쓰므로 웹 화면·원가계산서와 합계가 일치합니다.
-// 탭 순서는 사용자가 쓰던 양식과 같게 7 → 1 순서입니다. 1~6은 A4 가로, 7(갑지)은 A4 세로, 사방 여백 15mm, 가운데 정렬.
+// 탭 순서는 사용자가 쓰던 양식과 같게 7 → 1 순서입니다. 1~6은 A4 가로, 7(갑지)은 A4 세로, 위·아래 25mm 좌·우 20mm 여백, 가운데 정렬.
 import ExcelJS from "exceljs";
 import type { ComputeResult } from "./calc";
 import { koreanMoney, costBasis, type PrintDocs } from "./printDocs";
@@ -20,13 +20,14 @@ const SUB_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { a
 const TOT_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECECEC" } };
 const NUM = "#,##0";
 const NUM1 = "#,##0.###";
-const MARGIN_MM = 25;
-const MARGIN_IN = MARGIN_MM / 25.4;
+const MARGIN_X_MM = 20; // 좌우
+const MARGIN_Y_MM = 25; // 상하
+const IN = (mm: number) => mm / 25.4;
 const FONT = "맑은 고딕";
 
-function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", widths: number[]) {
+function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", widths: number[]): number {
   // 표가 인쇄 가능 폭(A4 − 좌우 여백)보다 좁으면 가운데 정렬 때문에 좌우 여백이 25mm보다 넓어 보이므로, 열 너비를 늘려 정확히 채웁니다.
-  const printableMm = (orientation === "landscape" ? 297 : 210) - 2 * MARGIN_MM;
+  const printableMm = (orientation === "landscape" ? 297 : 210) - 2 * MARGIN_X_MM;
   const targetPx = (printableMm / 25.4) * 96;
   const curPx = widths.reduce((a, w) => a + w * 7 + 5, 0);
   if (curPx < targetPx) {
@@ -36,9 +37,23 @@ function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", wid
   ws.columns = widths.map((w) => ({ width: w }));
   ws.pageSetup = {
     paperSize: 9, orientation, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, verticalCentered: false,
-    margins: { left: MARGIN_IN, right: MARGIN_IN, top: MARGIN_IN, bottom: MARGIN_IN, header: 0.2, footer: 0.2 },
+    margins: { left: IN(MARGIN_X_MM), right: IN(MARGIN_X_MM), top: IN(MARGIN_Y_MM), bottom: IN(MARGIN_Y_MM), header: 0.2, footer: 0.2 },
   };
   ws.views = [{ showGridLines: false }];
+  return Math.min(1, targetPx / Math.max(curPx, 1)); // 한 페이지 너비에 맞추려고 줄어드는 배율
+}
+
+/** 표가 한 장 안에 들어갈 때, 아래 여백(25mm) 선까지 닿도록 채울 수 있는 빈 행(22pt) 수. startRow부터 reserve(pt)는 뒤에 올 행을 위해 남깁니다. */
+function blankRowsToFill(ws: ExcelJS.Worksheet, startRow: number, orientation: "landscape" | "portrait", scale: number, reserve: number): number[] {
+  const availPt = (((orientation === "landscape" ? 210 : 297) - 2 * MARGIN_Y_MM) / 25.4) * 72 / scale - 3;
+  let used = 0;
+  for (let i = 1; i < startRow; i++) { const row = ws.getRow(i); if (!row.height) row.height = 18; used += row.height; } // 높이가 비어 있는 행은 프로그램마다 달라 18pt로 고정
+  if (used + reserve > availPt) return []; // 이미 한 장을 넘음
+  const left = availPt - used - reserve;
+  const hs = Array.from({ length: Math.floor(left / 22) }, () => 22);
+  const rest = left - hs.length * 22;
+  if (rest >= 8) hs.push(Math.floor(rest)); // 남는 높이는 마지막 빈 행이 채워 아래 여백 선에 맞춥니다
+  return hs;
 }
 
 function title(ws: ExcelJS.Worksheet, text: string, cols: number, sub: string) {
@@ -199,7 +214,7 @@ function sheet5(wb: ExcelJS.Workbook, name: string, docs: PrintDocs, sub: string
 
 function sheet6(wb: ExcelJS.Workbook, name: string, result: ComputeResult, sub: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "landscape", [22, 30, 8, 9, ...moneyW]);
+  const scale = setup(ws, "landscape", [22, 30, 8, 9, ...moneyW]);
   title(ws, "집 계 표", 13, sub);
   let r = moneyHead(ws, 4, ["품 명", "규 격", "단위", "수 량"]);
   for (const g of result.groupResults) {
@@ -209,6 +224,8 @@ function sheet6(wb: ExcelJS.Workbook, name: string, result: ComputeResult, sub: 
     r++;
   }
   for (let i = result.groupResults.length; i < 9; i++) { for (let c = 1; c <= 13; c++) put(ws, r, c, null); ws.getRow(r).height = 22; r++; }
+  for (const h of blankRowsToFill(ws, r, "landscape", scale, 22)) { for (let c = 1; c <= 13; c++) put(ws, r, c, null); ws.getRow(r).height = h; r++; }
+  ws.getRow(r).height = 22;
   put(ws, r, 1, "합 계", { bold: true, fill: TOT_FILL, align: "center" });
   for (let c = 2; c <= 13; c++) put(ws, r, c, null, { fill: TOT_FILL });
   put(ws, r, 6, nz(result.sumMat), { bold: true, fill: TOT_FILL, fmt: NUM }); put(ws, r, 8, nz(result.sumLabor), { bold: true, fill: TOT_FILL, fmt: NUM });
@@ -218,7 +235,7 @@ function sheet6(wb: ExcelJS.Workbook, name: string, result: ComputeResult, sub: 
 
 function sheet7(wb: ExcelJS.Workbook, name: string, result: ComputeResult, supplier: Supplier, recipient: Recipient, notes: string) {
   const ws = wb.addWorksheet(name);
-  setup(ws, "portrait", [6, 18, 28, 10, 14, 18]);
+  const scale = setup(ws, "portrait", [6, 18, 28, 10, 14, 18]);
   ws.mergeCells(1, 1, 1, 6);
   const t = ws.getCell(1, 1);
   t.value = "견  적  서"; t.font = { name: FONT, size: 22, bold: true }; t.alignment = { horizontal: "center", vertical: "middle" }; ws.getRow(1).height = 44;
@@ -286,6 +303,7 @@ function sheet7(wb: ExcelJS.Workbook, name: string, result: ComputeResult, suppl
   ws.getRow(r).height = notes.trim() ? 44 : 22;
   r++;
   for (let i = 0; i < filler; i++) { for (let c = 1; c <= 6; c++) put(ws, r, c, null); ws.getRow(r).height = 22; r++; }
+  for (const h of blankRowsToFill(ws, r, "portrait", scale, 0)) { for (let c = 1; c <= 6; c++) put(ws, r, c, null); ws.getRow(r).height = h; r++; }
   // 바깥 굵은 테두리
   const lastRow = r - 1;
   for (let rr = 1; rr <= lastRow; rr++) for (let c = 1; c <= 6; c++) {
