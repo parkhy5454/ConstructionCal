@@ -33,7 +33,7 @@ export default function LookupPage() {
     try {
       const res = await fetch("/api/pumsem-items/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId, materialId: Number(materialId), replace: true }) });
       const d = await res.json().catch(() => ({}));
-      setPumMsg((a) => ({ ...a, [itemId]: res.ok ? `✓ ${m?.name ?? "내 자재"}에 담음 (내 표준품셈에서 확인)` : (d.error ?? "실패") }));
+      setPumMsg((a) => ({ ...a, [itemId]: res.ok ? `✓ ${m?.name ?? "내 자재"}에 담음 (내 자재 관리 > 내 표준품셈)` : (d.error ?? `실패(${res.status})`) }));
       if (res.ok) setPumOpen(null);
     } catch { setPumMsg((a) => ({ ...a, [itemId]: "실패" })); }
   }

@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
   const item = await getPumsemItem(itemId);
   if (!item || item.discipline !== d) return NextResponse.json({ error: "품셈 항목을 찾을 수 없습니다." }, { status: 404 });
   if (item.labors.length === 0) return NextResponse.json({ error: "이 항목에는 적용할 공수가 없습니다." }, { status: 400 });
-  const r = await applyPumsemItem(user.id, d, materialId, item, body?.replace !== false);
-  return NextResponse.json({ ok: true, ...r });
+  try {
+    const r = await applyPumsemItem(user.id, d, materialId, item, body?.replace !== false);
+    return NextResponse.json({ ok: true, ...r });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("pumsem apply failed", msg);
+    return NextResponse.json({ error: `품셈을 담지 못했습니다: ${msg.slice(0, 200)}` }, { status: 500 });
+  }
 }
