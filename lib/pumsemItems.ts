@@ -21,12 +21,12 @@ export function parseLabors(s: string): PumsemLabor[] {
 
 const toItem = (r: typeof pumsemItems.$inferSelect): PumsemItem => ({ ...r, labors: parseLabors(r.labors) });
 
-/** 표준품셈 책 검색 — 공종·규격·장/절 이름에 단어가 모두 들어 있는 항목(페이지 단위). 테이블이 아직 없으면 빈 결과. */
+/** 표준품셈 책 검색 — 공종·규격·장/절 이름·직종(내선전공 등)에 단어가 모두 들어 있는 항목(페이지 단위). 테이블이 아직 없으면 빈 결과. */
 export async function searchPumsemItems(discipline: string, q: string, limit: number, offset: number, db: ReturnType<typeof getDb> = getDb()): Promise<{ rows: PumsemItem[]; total: number; missing?: boolean }> {
   const words = q.toLowerCase().replace(/[&,]/g, " ").split(/\s+/).filter(Boolean).slice(0, 6);
   const conds = [eq(pumsemItems.discipline, discipline as never)];
   for (const w of words) {
-    conds.push(sql`lower(${pumsemItems.chapter} || ' ' || ${pumsemItems.section} || ' ' || ${pumsemItems.title} || ' ' || ${pumsemItems.spec}) like ${"%" + w.replace(/[%_\\]/g, "\\$&") + "%"}`);
+    conds.push(sql`lower(${pumsemItems.chapter} || ' ' || ${pumsemItems.section} || ' ' || ${pumsemItems.title} || ' ' || ${pumsemItems.spec} || ' ' || ${pumsemItems.labors}) like ${"%" + w.replace(/[%_\\]/g, "\\$&") + "%"}`);
   }
   const where = and(...conds);
   try {

@@ -23,6 +23,8 @@ async function main() {
   ]);
   const r = await searchPumsemItems("electrical", "후강 28", 10, 0, db);
   ok(r.total === 1 && r.rows[0].labors.length === 2, "품셈 책 검색: 단어 모두 일치, 업종 분리");
+  ok((await searchPumsemItems("electrical", "내선전공", 10, 0, db)).total === 1, "직종 이름(내선전공)으로도 검색");
+  ok((await searchPumsemItems("electrical", "보통인부 후강", 10, 0, db)).total === 1, "직종 + 공종 이름을 함께 검색");
   ok((await searchPumsemItems("electrical", "", 10, 0, db)).total === 2, "빈 검색은 업종 전체");
   ok(parseLabors("not json").length === 0, "깨진 labors JSON은 빈 목록");
 
