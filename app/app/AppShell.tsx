@@ -103,7 +103,7 @@ export default function AppShell({
       </header>
 
       {/* 본문 */}
-      <main className="flex-1 min-w-0 px-4 py-5 pb-24 md:py-6 md:pb-10 md:px-8 max-w-3xl mx-auto md:mx-0 w-full">
+      <main className="app-main flex-1 min-w-0 px-4 py-5 pb-24 md:py-6 md:pb-10 md:px-8 max-w-3xl mx-auto md:mx-0 w-full">
         {children}
       </main>
 

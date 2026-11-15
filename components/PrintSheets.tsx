@@ -28,6 +28,7 @@ export const PRINT_CSS = `
   .sheet .gap td { border: none !important; height: 8px !important; padding: 0 !important; }
   @media print {
     nav, header, .no-print { display: none !important; }
+    .app-main { padding: 0 !important; max-width: none !important; margin: 0 !important; width: 100% !important; }
     body, .min-h-screen { background: #fff !important; }
     .sheet { border: none !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; max-width: none !important; overflow: visible !important; break-after: page; }
     .sheet:last-of-type { break-after: auto; }

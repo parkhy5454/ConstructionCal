@@ -20,10 +20,19 @@ const SUB_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { a
 const TOT_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFECECEC" } };
 const NUM = "#,##0";
 const NUM1 = "#,##0.###";
-const MARGIN_IN = 25 / 25.4;
+const MARGIN_MM = 25;
+const MARGIN_IN = MARGIN_MM / 25.4;
 const FONT = "맑은 고딕";
 
 function setup(ws: ExcelJS.Worksheet, orientation: "landscape" | "portrait", widths: number[]) {
+  // 표가 인쇄 가능 폭(A4 − 좌우 여백)보다 좁으면 가운데 정렬 때문에 좌우 여백이 25mm보다 넓어 보이므로, 열 너비를 늘려 정확히 채웁니다.
+  const printableMm = (orientation === "landscape" ? 297 : 210) - 2 * MARGIN_MM;
+  const targetPx = (printableMm / 25.4) * 96;
+  const curPx = widths.reduce((a, w) => a + w * 7 + 5, 0);
+  if (curPx < targetPx) {
+    const k = (targetPx - widths.length * 5) / (curPx - widths.length * 5);
+    widths = widths.map((w) => w * k);
+  }
   ws.columns = widths.map((w) => ({ width: w }));
   ws.pageSetup = {
     paperSize: 9, orientation, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, verticalCentered: false,
