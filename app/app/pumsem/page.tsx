@@ -93,7 +93,6 @@ export default function PumsemPage() {
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 
-      <PumsemBook discipline={discipline} onApplied={() => load(discipline)} />
 
       {loading ? (
         <p className="text-sm text-gray-400">불러오는 중...</p>
@@ -144,6 +143,8 @@ export default function PumsemPage() {
             </form>
             {error && <p className="text-xs text-red-600 px-3 pb-2">{error}</p>}
           </section>
+
+          <PumsemBook discipline={discipline} onApplied={() => load(discipline)} />
 
           <section className="bg-white border rounded-xl p-4">
             <h2 className="text-sm font-bold mb-1">일위대가 (자동 결합)</h2>

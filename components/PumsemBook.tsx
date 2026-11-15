@@ -45,7 +45,6 @@ export default function PumsemBook({ discipline, onApplied }: { discipline: Disc
     <section className="bg-white border rounded-xl p-4 space-y-3">
       <div>
         <h2 className="text-sm font-bold">📖 표준품셈 책에서 찾아 적용</h2>
-        <p className="text-xs text-gray-400 mt-1">공종·규격으로 검색해 항목을 고르고, 내 자재를 선택하면 직종별 공수가 그 자재의 품셈으로 복사됩니다. (자동 추출본이므로 ‘확인’ 표시 항목은 원문과 대조하세요.)</p>
       </div>
       {missing ? (
         <p className="text-xs text-gray-400">표준품셈 책 데이터가 아직 준비되지 않았습니다.</p>
