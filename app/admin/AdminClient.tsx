@@ -291,24 +291,32 @@ function PumsemUpload() {
     if (!f) return;
     if (!confirm(`${DISCIPLINE_LABELS[disc as keyof typeof DISCIPLINE_LABELS]} 표준품셈 책을 이 파일로 교체합니다. 기존 책 항목은 삭제됩니다(사용자의 자재별 품셈은 그대로). 계속할까요?`)) return;
     setBusy(true); setMsg("읽는 중...");
+    let rows: unknown[];
     try {
-      const lines = (await f.text()).split("\n").filter((l) => l.trim());
-      const rows = lines.map((l) => JSON.parse(l));
-      let done = 0, skipped = 0;
-      for (let i = 0; i < rows.length; i += 800) {
-        const res = await fetch("/api/admin/pumsem-items", {
+      rows = (await f.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    } catch {
+      setMsg("파일 형식이 올바르지 않습니다. jsonl(한 줄에 JSON 하나) 파일인지 확인하세요.");
+      setBusy(false); return;
+    }
+    let done = 0, skipped = 0;
+    for (let i = 0; i < rows.length; i += 800) {
+      let res: Response;
+      try {
+        res = await fetch("/api/admin/pumsem-items", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ discipline: disc, rows: rows.slice(i, i + 800), first: i === 0 }),
         });
-        const d = await res.json();
-        if (!res.ok) { setMsg(`실패: ${d.error ?? res.status} (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return; }
-        done += d.inserted; skipped += d.skipped;
-        setMsg(`올리는 중... ${Math.min(i + 800, rows.length).toLocaleString()} / ${rows.length.toLocaleString()}`);
+      } catch {
+        setMsg(`서버에 연결하지 못했습니다. (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return;
       }
-      setMsg(`완료: ${done.toLocaleString()}건 등록${skipped ? `, 공수가 없어 ${skipped}건 제외` : ""}`);
-    } catch {
-      setMsg("파일을 읽을 수 없습니다. jsonl(한 줄에 JSON 하나) 형식인지 확인하세요.");
+      const text = await res.text();
+      let d: { error?: string; inserted?: number; skipped?: number } = {};
+      try { d = JSON.parse(text); } catch { /* 서버가 JSON이 아닌 오류 페이지를 돌려준 경우 */ }
+      if (!res.ok) { setMsg(`실패(${res.status}): ${d.error ?? text.slice(0, 120)} (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return; }
+      done += d.inserted ?? 0; skipped += d.skipped ?? 0;
+      setMsg(`올리는 중... ${Math.min(i + 800, rows.length).toLocaleString()} / ${rows.length.toLocaleString()}`);
     }
+    setMsg(`완료: ${done.toLocaleString()}건 등록${skipped ? `, 공수가 없어 ${skipped}건 제외` : ""}`);
     setBusy(false);
   }
   return (

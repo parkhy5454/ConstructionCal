@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     if (isMissingTable(e)) return NextResponse.json({ error: "pumsem_items 테이블이 없습니다. 먼저 DB 마이그레이션(0010)을 실행하세요." }, { status: 409 });
-    throw e;
+    const m = e instanceof Error ? e.message : String(e);
+    const c = e instanceof Error && (e as { cause?: unknown }).cause instanceof Error ? ` / ${((e as { cause?: Error }).cause as Error).message}` : "";
+    return NextResponse.json({ error: `저장 중 오류: ${m.slice(0, 160)}${c.slice(0, 160)}` }, { status: 500 });
   }
 }
