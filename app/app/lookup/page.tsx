@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
+import MaterialPicker from "@/components/MaterialPicker";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 import { fmt } from "@/lib/calc";
 import type { Discipline } from "@/lib/calc";
@@ -17,12 +18,25 @@ export default function LookupPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [itemTotal, setItemTotal] = useState(0);
   const [matMissing, setMatMissing] = useState(false);
+  const [pumOpen, setPumOpen] = useState<number | null>(null);
+  const [pumMsg, setPumMsg] = useState<Record<number, string>>({});
   const [added, setAdded] = useState<Record<number, string>>({});
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
   useEffect(() => { setOffset(0); }, [discipline, q, tab]);
+
+  async function applyPumsem(itemId: number, materialId: string, m?: { name: string; spec: string }) {
+    if (!materialId) return;
+    setPumMsg((a) => ({ ...a, [itemId]: "담는 중..." }));
+    try {
+      const res = await fetch("/api/pumsem-items/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId, materialId: Number(materialId), replace: true }) });
+      const d = await res.json().catch(() => ({}));
+      setPumMsg((a) => ({ ...a, [itemId]: res.ok ? `✓ ${m?.name ?? "내 자재"}에 담음 (내 표준품셈에서 확인)` : (d.error ?? "실패") }));
+      if (res.ok) setPumOpen(null);
+    } catch { setPumMsg((a) => ({ ...a, [itemId]: "실패" })); }
+  }
 
   async function adopt(itemId: number) {
     setAdded((a) => ({ ...a, [itemId]: "담는 중..." }));
@@ -86,17 +100,35 @@ export default function LookupPage() {
           </table>
         ) : (
           <table className="w-full text-xs">
-            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">공종</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3">직종별 공수(인)</th></tr></thead>
+            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">공종</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3">직종별 공수(인)</th><th className="py-2 px-3"></th></tr></thead>
             <tbody>
               {items.map((it) => (
-                <tr key={it.id} className="border-t align-top">
+                <Fragment key={it.id}>
+                <tr className="border-t align-top">
                   <td className="py-1.5 px-3"><div className="font-medium">{it.title}</div><div className="text-gray-400">{it.chapter}{it.section ? ` > ${it.section}` : ""}</div></td>
                   <td className="py-1.5 px-3 text-gray-600">{it.spec}</td>
                   <td className="py-1.5 px-3">{it.unit}</td>
                   <td className="py-1.5 px-3">{it.labors.map((l) => `${l.name} ${l.factor}`).join(", ")}</td>
+                  <td className="py-1.5 px-3 text-right whitespace-nowrap">
+                    <button onClick={() => setPumOpen(pumOpen === it.id ? null : it.id)} className="text-[11px] border rounded px-2 py-0.5 hover:bg-gray-50">내 자재에 담기</button>
+                  </td>
                 </tr>
+                {(pumOpen === it.id || pumMsg[it.id]) && (
+                  <tr className="bg-gray-50">
+                    <td colSpan={5} className="px-3 py-2">
+                      {pumOpen === it.id && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] text-gray-500">이 공수를 적용할 자재를 고르세요(공용 단가표에서 고르면 내 자재로 함께 담김):</span>
+                          <MaterialPicker discipline={discipline} value="" onChange={(id, m) => applyPumsem(it.id, id, m)} />
+                        </div>
+                      )}
+                      {pumMsg[it.id] && <div className="text-[11px] text-green-700 mt-1">{pumMsg[it.id]}</div>}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
-              {!loading && items.length === 0 && <tr><td colSpan={4} className="py-6 text-center text-gray-400">{q ? "검색 결과가 없습니다." : "등록된 표준품셈이 없습니다."}</td></tr>}
+              {!loading && items.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-400">{q ? "검색 결과가 없습니다." : "등록된 표준품셈이 없습니다."}</td></tr>}
             </tbody>
           </table>
         )}
