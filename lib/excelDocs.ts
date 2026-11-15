@@ -1,6 +1,6 @@
 // 제출용 문서 7종을 엑셀 7개 탭으로 만듭니다(웹의 "저장" 화면과 같은 내용·순서). 서버 전용(exceljs).
 // 금액은 buildPrintDocs/ComputeResult의 값을 그대로 쓰므로 웹 화면·원가계산서와 합계가 일치합니다.
-// 탭 순서는 사용자가 쓰던 양식과 같게 7 → 1 순서입니다. 1~6은 A4 가로, 7(갑지)은 A4 세로, 위·아래 25mm 좌·우 20mm 여백, 가운데 정렬.
+// 탭 순서는 사용자가 쓰던 양식과 같게 7 → 1 순서입니다. 1~6은 A4 가로, 7(갑지)은 A4 세로, 사방 20mm 여백, 가운데 정렬.
 import ExcelJS from "exceljs";
 import type { ComputeResult } from "./calc";
 import { koreanMoney, costBasis, type PrintDocs } from "./printDocs";
@@ -21,7 +21,7 @@ const TOT_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { a
 const NUM = "#,##0";
 const NUM1 = "#,##0.###";
 const MARGIN_X_MM = 20; // 좌우
-const MARGIN_Y_MM = 25; // 상하
+const MARGIN_Y_MM = 20; // 상하
 const IN = (mm: number) => mm / 25.4;
 const FONT = "맑은 고딕";
 

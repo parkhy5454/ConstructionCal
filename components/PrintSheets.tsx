@@ -5,7 +5,7 @@ import { won } from "@/components/EstimateTables";
 import { buildPrintDocs, koreanMoney, costBasis, type PrintDocs } from "@/lib/printDocs";
 
 export const PRINT_MARGIN_X_MM = 20; // 좌우
-export const PRINT_MARGIN_Y_MM = 25; // 상하
+export const PRINT_MARGIN_Y_MM = 20; // 상하
 
 export const PRINT_CSS = `
   @page landscape { size: A4 landscape; margin: ${PRINT_MARGIN_Y_MM}mm ${PRINT_MARGIN_X_MM}mm; }

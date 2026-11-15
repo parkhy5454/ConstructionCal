@@ -4,7 +4,7 @@ import type { ComputeResult } from "@/lib/calc";
 export const won = (n: number) => Math.round(n).toLocaleString("ko-KR");
 
 export const DOC_CSS = `
-  @page { size: A4; margin: 25mm 20mm; }
+  @page { size: A4; margin: 20mm; }
   @media print {
     nav, header, .no-print { display: none !important; }
     body, .min-h-screen { background: #fff !important; }

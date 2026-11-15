@@ -2,7 +2,7 @@ import { PRINT_MARGIN_Y_MM } from "./PrintSheets";
 
 const MM = 96 / 25.4;
 
-/** 인쇄 직전에 집계표·견적서(data-fit)가 한 장 안에 들어가면, 아래 여백(25mm) 선까지 표가 닿도록 빈 칸(행)을 채워 넣습니다. */
+/** 인쇄 직전에 집계표·견적서(data-fit)가 한 장 안에 들어가면, 아래 여백(20mm) 선까지 표가 닿도록 빈 칸(행)을 채워 넣습니다. */
 function fit() {
   document.querySelectorAll<HTMLElement>(".sheet[data-fit]").forEach((sec) => {
     sec.querySelectorAll("tr.autofill").forEach((r) => r.remove());
