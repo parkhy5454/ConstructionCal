@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import type { LaborRate, RateSettings, Discipline } from "@/lib/calc";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 
@@ -77,6 +78,17 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-bold">⚙️ 설정</h1>
+
+      <section className="grid sm:grid-cols-2 gap-2">
+        <Link href="/app/prices" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
+          <div className="text-sm font-semibold">💰 자재 단가 관리</div>
+          <div className="text-xs text-gray-400 mt-0.5">단가 엑셀·TSV 업로드, 자재 추가·수정·삭제</div>
+        </Link>
+        <Link href="/app/pumsem" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
+          <div className="text-sm font-semibold">📐 자재별 품셈 관리</div>
+          <div className="text-xs text-gray-400 mt-0.5">자재별 공수 편집, 표준품셈 책에서 찾아 적용</div>
+        </Link>
+      </section>
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
 

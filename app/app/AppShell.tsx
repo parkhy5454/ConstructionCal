@@ -3,11 +3,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: string; also?: string[] };
+const isActive = (pathname: string | null, item: NavItem) => !!pathname && (pathname.startsWith(item.href) || (item.also ?? []).some((a) => pathname.startsWith(a)));
+const NAV: NavItem[] = [
   { href: "/app/home", label: "홈", icon: "🏠" },
   { href: "/app/estimate", label: "견적서", icon: "📄" },
-  { href: "/app/prices", label: "물가정보", icon: "💰" },
-  { href: "/app/pumsem", label: "표준품셈", icon: "📐" },
+  { href: "/app/lookup", label: "자재·품셈 단가", icon: "🔎", also: ["/app/prices", "/app/pumsem"] },
   { href: "/app/settings", label: "설정", icon: "⚙️" },
 ];
 
@@ -30,7 +31,7 @@ export default function AppShell({
     router.refresh();
   }
 
-  const current = NAV.find((item) => pathname?.startsWith(item.href));
+  const current = NAV.find((item) => isActive(pathname, item));
 
   return (
     <div className="min-h-screen bg-[#f6f7f5] md:flex">
@@ -45,7 +46,7 @@ export default function AppShell({
         </div>
         <div className="flex flex-col gap-1">
           {NAV.map((item) => {
-            const active = pathname?.startsWith(item.href);
+            const active = isActive(pathname, item);
             return (
               <Link
                 key={item.href}
@@ -109,7 +110,7 @@ export default function AppShell({
       {/* 모바일 하단 탭바 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur border-t border-[#e4e8e5] flex justify-between px-1 pt-1.5 pb-[max(6px,env(safe-area-inset-bottom,0px))] shadow-[0_-2px_10px_rgba(0,0,0,.06)]">
         {NAV.map((item) => {
-          const active = pathname?.startsWith(item.href);
+          const active = isActive(pathname, item);
           return (
             <Link
               key={item.href}
