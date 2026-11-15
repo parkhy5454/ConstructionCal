@@ -1,6 +1,5 @@
 "use client";
 import { Fragment, useEffect, useState, useCallback } from "react";
-import MaterialPicker from "@/components/MaterialPicker";
 import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/DisciplineTabs";
 import { fmt } from "@/lib/calc";
 import type { Discipline } from "@/lib/calc";
@@ -18,7 +17,6 @@ export default function LookupPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [itemTotal, setItemTotal] = useState(0);
   const [matMissing, setMatMissing] = useState(false);
-  const [pumOpen, setPumOpen] = useState<number | null>(null);
   const [pumMsg, setPumMsg] = useState<Record<number, string>>({});
   const [added, setAdded] = useState<Record<number, string>>({});
   const [offset, setOffset] = useState(0);
@@ -27,14 +25,12 @@ export default function LookupPage() {
   useEffect(() => { setDiscipline(loadSavedDiscipline()); }, []);
   useEffect(() => { setOffset(0); }, [discipline, q, tab]);
 
-  async function applyPumsem(itemId: number, materialId: string, m?: { name: string; spec: string }) {
-    if (!materialId) return;
+  async function applyPumsem(itemId: number) {
     setPumMsg((a) => ({ ...a, [itemId]: "담는 중..." }));
     try {
-      const res = await fetch("/api/pumsem-items/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId, materialId: Number(materialId), replace: true }) });
+      const res = await fetch("/api/pumsem-items/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ discipline, itemId, replace: true }) });
       const d = await res.json().catch(() => ({}));
-      setPumMsg((a) => ({ ...a, [itemId]: res.ok ? `✓ ${m?.name ?? "내 자재"}에 담음 (내 자재 관리 > 내 표준품셈)` : (d.error ?? `실패(${res.status})`) }));
-      if (res.ok) setPumOpen(null);
+      setPumMsg((a) => ({ ...a, [itemId]: res.ok ? "✓ 내 표준품셈에 담음 (내 자재 관리 > 내 표준품셈)" : (d.error ?? `실패(${res.status})`) }));
     } catch { setPumMsg((a) => ({ ...a, [itemId]: "실패" })); }
   }
 
@@ -109,21 +105,11 @@ export default function LookupPage() {
                   <td className="py-1.5 px-3">{it.unit}</td>
                   <td className="py-1.5 px-3">{it.labors.map((l) => `${l.name} ${l.factor}`).join(", ")}</td>
                   <td className="py-1.5 px-3 text-right whitespace-nowrap">
-                    <button onClick={() => setPumOpen(pumOpen === it.id ? null : it.id)} className="text-[11px] border rounded px-2 py-0.5 hover:bg-gray-50">내 자재에 담기</button>
+                    <button onClick={() => applyPumsem(it.id)} className="text-[11px] border rounded px-2 py-0.5 hover:bg-gray-50">{pumMsg[it.id]?.startsWith("✓") ? "✓ 담음" : "내 표준품셈에 담기"}</button>
                   </td>
                 </tr>
-                {(pumOpen === it.id || pumMsg[it.id]) && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={5} className="px-3 py-2">
-                      {pumOpen === it.id && (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[11px] text-gray-500">이 공수를 적용할 자재를 고르세요(공용 단가표에서 고르면 내 자재로 함께 담김):</span>
-                          <MaterialPicker discipline={discipline} value="" onChange={(id, m) => applyPumsem(it.id, id, m)} />
-                        </div>
-                      )}
-                      {pumMsg[it.id] && <div className="text-[11px] text-green-700 mt-1">{pumMsg[it.id]}</div>}
-                    </td>
-                  </tr>
+                {pumMsg[it.id] && !pumMsg[it.id].startsWith("✓") && (
+                  <tr className="bg-gray-50"><td colSpan={5} className="px-3 py-2 text-[11px] text-red-600">{pumMsg[it.id]}</td></tr>
                 )}
                 </Fragment>
               ))}

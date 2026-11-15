@@ -5,7 +5,7 @@ import * as schema from "../lib/schema";
 import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
 import { removeSampleMaterials, deleteMaterialsByIds, deletePumsemByIds, deleteAllPumsem } from "../lib/estimateData";
 import { searchPriceItems, importPriceRows, adoptPriceItem } from "../lib/priceItems";
-import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
+import { ensureItemMaterial, searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
 let fails = 0;
 const ok = (c: boolean, m: string) => { console.log(`${c ? "OK " : "XX "} ${m}`); if (!c) fails++; };
@@ -74,6 +74,13 @@ async function main() {
   const d2 = await deleteAllPumsem(11, "electrical", db);
   const mLeft = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 11));
   ok(d2.deleted === 1 && mLeft.length === 1, "품셈 전체 삭제(자재는 남김)");
+  const bookItem = (await searchPumsemItems("electrical", "후강 28", 10, 0, db)).rows[0];
+  const mid1 = await ensureItemMaterial(12, "electrical", bookItem, db);
+  const mid2 = await ensureItemMaterial(12, "electrical", bookItem, db);
+  ok(mid1 === mid2, "품셈 항목을 직접 담으면 같은 항목은 한 번만 만들어짐");
+  await applyPumsemItem(12, "electrical", mid1, bookItem, true, db);
+  const mine12 = await db.select().from(schema.pumsem).where(require("drizzle-orm").eq(schema.pumsem.userId, 12));
+  ok(mine12.length === 2, "직접 담기: 직종별 공수 2건이 내 품셈으로 저장");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
     { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
     { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },

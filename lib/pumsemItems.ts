@@ -1,6 +1,6 @@
 import { and, eq, sql, asc } from "drizzle-orm";
 import { getDb } from "./db";
-import { pumsemItems, laborRates, pumsem } from "./schema";
+import { pumsemItems, laborRates, pumsem, materials } from "./schema";
 import { isMissingTable } from "./security";
 
 export type PumsemLabor = { name: string; factor: number };
@@ -110,4 +110,16 @@ export async function importPumsemRows(discipline: string, rows: RawPumsemRow[],
   const vals = rows.map((r) => toPumsemRow(discipline, r)).filter((v): v is NonNullable<typeof v> => v !== null);
   for (let i = 0; i < vals.length; i += 400) await db.insert(pumsemItems).values(vals.slice(i, i + 400));
   return { inserted: vals.length, skipped: rows.length - vals.length };
+}
+
+/** 표준품셈 항목을 그대로 내 품셈에 담기 위해, 같은 이름·규격·단위의 내 항목(자재, 분류 "표준품셈", 단가 0)을 찾거나 만듭니다. */
+export async function ensureItemMaterial(userId: number, discipline: string, item: PumsemItem, db: ReturnType<typeof getDb> = getDb()): Promise<number> {
+  const name = item.title.slice(0, 200);
+  const spec = item.spec.slice(0, 200);
+  const unit = (item.unit || "식").slice(0, 20);
+  const ex = (await db.select({ id: materials.id }).from(materials)
+    .where(and(eq(materials.userId, userId), eq(materials.discipline, discipline as never), eq(materials.name, name), eq(materials.spec, spec), eq(materials.unit, unit))).limit(1))[0];
+  if (ex) return ex.id;
+  const [row] = await db.insert(materials).values({ userId, discipline: discipline as never, category: "표준품셈", name, spec, unit, price: "0" }).returning({ id: materials.id });
+  return row.id;
 }
