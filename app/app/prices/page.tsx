@@ -83,9 +83,9 @@ export default function PricesPage() {
   const toggle = (id: number) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   async function cleanSamples() {
-    if (!confirm("예전에 자동으로 들어간 예시 자재를 이 업종에서 지웁니다. 견적서에서 쓰는 자재는 남깁니다. 계속할까요?")) return;
+    if (!confirm("예전에 자동으로 들어간 예시 자재를 모든 업종(전기·통신·소방 등)에서 지웁니다. 견적서에서 쓰는 자재는 남깁니다. 계속할까요?")) return;
     setBusy(true); setError(null);
-    const res = await fetch(`/api/materials/samples?discipline=${discipline}`, { method: "DELETE" });
+    const res = await fetch(`/api/materials/samples?discipline=all`, { method: "DELETE" });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) { setError(d.error ?? "정리 실패"); return; }
