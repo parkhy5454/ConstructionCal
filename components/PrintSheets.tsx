@@ -198,7 +198,7 @@ export function Sheet6Summary({ result }: { result: ComputeResult }) {
   const rows = result.groupResults;
   const filler = Math.max(0, 9 - rows.length);
   return (
-    <section className="sheet landscape" data-fit>
+    <section className="sheet landscape">
       <Title>집 계 표</Title>
       <table className="doc">
         <MoneyHead first={basicHead} />
@@ -250,7 +250,7 @@ export function Sheet7Estimate({ result, supplier, recipient, logo, seal, notes 
   ];
   const filler = notes.trim() ? 3 : 5;
   return (
-    <section className="sheet portrait" data-fit>
+    <section className="sheet portrait">
       <div className="gab">
         <div style={{ textAlign: "center", fontSize: 26, letterSpacing: 14, textIndent: 14, padding: "10px 0", borderBottom: "1px solid #000", fontWeight: 500 }}>견 적 서</div>
         <div style={{ display: "flex", borderBottom: "1px solid #000" }}>
