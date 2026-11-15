@@ -412,3 +412,21 @@ export async function removeSampleMaterials(userId: number, discipline: Discipli
   }
   return { deleted: del.length, kept: samples.length - del.length };
 }
+
+/** 선택한 자재를 지웁니다(내 자재만). 견적서에서 쓰는 자재는 남기고, 지운 자재의 품셈(공수)도 함께 지웁니다. */
+export async function deleteMaterialsByIds(userId: number, ids: number[], db: ReturnType<typeof getDb> = getDb()): Promise<{ deleted: number; kept: number }> {
+  const list = uniqIds(ids).slice(0, 2000);
+  if (list.length === 0) return { deleted: 0, kept: 0 };
+  const mine = await db.select({ id: materials.id }).from(materials).where(and(eq(materials.userId, userId), inArray(materials.id, list)));
+  const own = mine.map((m: { id: number }) => m.id);
+  if (own.length === 0) return { deleted: 0, kept: 0 };
+  const usedRows = await db.select({ id: bomItems.materialId }).from(bomItems).innerJoin(projects, eq(projects.id, bomItems.projectId)).where(and(eq(projects.userId, userId), inArray(bomItems.materialId, own)));
+  const used = new Set<number>(usedRows.map((r: { id: number }) => r.id));
+  const del = own.filter((id: number) => !used.has(id));
+  for (let i = 0; i < del.length; i += 500) {
+    const part = del.slice(i, i + 500);
+    await db.delete(pumsem).where(and(eq(pumsem.userId, userId), inArray(pumsem.materialId, part)));
+    await db.delete(materials).where(and(eq(materials.userId, userId), inArray(materials.id, part)));
+  }
+  return { deleted: del.length, kept: own.length - del.length };
+}

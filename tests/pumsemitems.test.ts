@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
 import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
-import { removeSampleMaterials } from "../lib/estimateData";
+import { removeSampleMaterials, deleteMaterialsByIds } from "../lib/estimateData";
 import { searchPriceItems, importPriceRows, adoptPriceItem } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
@@ -59,6 +59,11 @@ async function main() {
   const rs = await removeSampleMaterials(9, "electrical", db);
   const left = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 9));
   ok(rs.deleted === 1 && left.length === 1 && left[0].name === "내가담은자재", "예시 자재만 지우고 내가 담은 자재는 남김");
+  const ids9 = left.map((m: { id: number }) => m.id);
+  const other = await db.insert(schema.materials).values({ userId: 10, discipline: "electrical", name: "남의자재", spec: "", unit: "개", price: "1" }).returning();
+  const bd = await deleteMaterialsByIds(9, [...ids9, other[0].id], db);
+  const rest10 = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 10));
+  ok(bd.deleted === 1 && rest10.length === 1, "선택 삭제: 내 자재만 지우고 남의 자재는 건드리지 않음");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
     { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
     { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },

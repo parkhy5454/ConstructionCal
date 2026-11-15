@@ -10,6 +10,7 @@ export default function PricesPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ category: "", name: "", spec: "", unit: "", price: "" });
   const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState<Set<number>>(new Set());
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -66,6 +67,20 @@ export default function PricesPage() {
     load(discipline, q, page);
   }
 
+  async function deleteSelected() {
+    if (sel.size === 0) return;
+    if (!confirm(`선택한 ${sel.size}개 자재를 지웁니다. 견적서에서 쓰는 자재는 남습니다. 계속할까요?`)) return;
+    setBusy(true); setError(null);
+    const res = await fetch("/api/materials/bulk-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel) }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setError(d.error ?? "삭제 실패"); return; }
+    setSel(new Set());
+    setError(`${d.deleted ?? 0}개를 지웠습니다${d.kept ? ` (견적서에서 쓰는 ${d.kept}개는 남김)` : ""}.`);
+    load(discipline, q, page);
+  }
+  const toggle = (id: number) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
   async function cleanSamples() {
     if (!confirm("예전에 자동으로 들어간 예시 자재를 이 업종에서 지웁니다. 견적서에서 쓰는 자재는 남깁니다. 계속할까요?")) return;
     setBusy(true); setError(null);
@@ -107,6 +122,7 @@ export default function PricesPage() {
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="자재 검색 (예: 배선용차단기 3P 100A)"
           className="border rounded-lg px-3 py-1.5 text-xs flex-1 min-w-[220px] bg-white" />
         <span className="text-xs text-gray-400">{total.toLocaleString()}개</span>
+        {sel.size > 0 && <button onClick={deleteSelected} disabled={busy} className="text-[11px] bg-red-600 text-white rounded px-2 py-1 font-semibold">선택 {sel.size}개 삭제</button>}
         <button onClick={cleanSamples} disabled={busy} className="text-[11px] border rounded px-2 py-1 text-gray-500 hover:bg-gray-50">예시 자재 정리</button>
       </div>
 
@@ -119,13 +135,14 @@ export default function PricesPage() {
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-400 text-left bg-gray-50">
-                <th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th>
+                <th className="py-2 px-3 w-8"><input type="checkbox" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} aria-label="현재 쪽 전체 선택" /></th><th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th>
                 <th className="py-2 px-3">단위</th><th className="py-2 px-3 text-right">단가(원)</th><th></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((m) => (
                 <tr key={m.id} className="border-t">
+                  <td className="py-1.5 px-3"><input type="checkbox" checked={sel.has(m.id)} onChange={() => toggle(m.id)} aria-label="선택" /></td>
                   <td className="py-1.5 px-3 text-gray-400">{m.category}</td>
                   <td className="py-1.5 px-3 font-medium">{m.name}</td>
                   <td className="py-1.5 px-3 text-gray-500">{m.spec}</td>
