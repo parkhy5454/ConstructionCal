@@ -286,3 +286,17 @@ export const dxfMappings = pgTable("dxf_mappings", {
 }, (t) => ({
   userMatch: unique().on(t.userId, t.discipline, t.matchType, t.matchName),
 }));
+
+// 공용 자재 단가표(물가정보 등): 모든 사용자가 읽는 조회용 기준표. 관리자가 월별로 교체합니다.
+// 사용자 계정의 materials(견적에 쓰는 자재)와는 별개이며, 조회 화면에서 규격·단가를 찾는 데 씁니다.
+export const priceItems = pgTable("price_items", {
+  id: serial("id").primaryKey(),
+  discipline: disciplineEnum("discipline").notNull(),
+  category: varchar("category", { length: 160 }).notNull().default(""),
+  name: varchar("name", { length: 300 }).notNull(),
+  spec: varchar("spec", { length: 500 }).notNull().default(""),
+  unit: varchar("unit", { length: 40 }).notNull().default(""),
+  price: numeric("price", { precision: 18, scale: 4 }).notNull().default("0"),
+  maker: varchar("maker", { length: 100 }).notNull().default(""),
+  basis: varchar("basis", { length: 60 }).notNull().default(""),
+}, (t) => ({ byDiscipline: index("price_items_discipline_idx").on(t.discipline) }));

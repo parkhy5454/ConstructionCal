@@ -4,7 +4,7 @@ import DisciplineTabs, { loadSavedDiscipline, saveDiscipline } from "@/app/app/D
 import { fmt } from "@/lib/calc";
 import type { Discipline } from "@/lib/calc";
 
-type Mat = { id: number; category: string; name: string; spec: string; unit: string; price: number };
+type Mat = { id: number; category: string; name: string; spec: string; unit: string; price: number; maker: string; basis: string };
 type Item = { id: number; chapter: string; section: string; title: string; spec: string; unit: string; labors: Array<{ name: string; factor: number }> };
 const PAGE = 50;
 
@@ -16,6 +16,7 @@ export default function LookupPage() {
   const [matTotal, setMatTotal] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [itemTotal, setItemTotal] = useState(0);
+  const [matMissing, setMatMissing] = useState(false);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -26,11 +27,11 @@ export default function LookupPage() {
     setLoading(true);
     const qs = `discipline=${discipline}&q=${encodeURIComponent(q)}&limit=${PAGE}`;
     const [mr, pr] = await Promise.all([
-      fetch(`/api/materials?${qs}&offset=${tab === "mat" ? offset : 0}`),
+      fetch(`/api/price-items?${qs}&offset=${tab === "mat" ? offset : 0}`),
       fetch(`/api/pumsem-items?${qs}&offset=${tab === "pum" ? offset : 0}`),
     ]);
     const [md, pd] = await Promise.all([mr.json(), pr.json()]);
-    setMats(md.materials ?? []); setMatTotal(md.total ?? 0);
+    setMats(md.rows ?? []); setMatTotal(md.total ?? 0); setMatMissing(!!md.missing);
     setItems(pd.rows ?? []); setItemTotal(pd.total ?? 0);
     setLoading(false);
   }, [discipline, q, tab, offset]);
@@ -43,7 +44,7 @@ export default function LookupPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-lg font-bold">🔎 자재·품셈 단가</h1>
-        <p className="text-xs text-gray-400 mt-1">찾는 자재의 규격과 단가, 표준품셈의 공종별 공수를 검색해서 확인합니다. 여러 단어는 띄어 쓰면 모두 포함된 항목만 나옵니다.</p>
+        <p className="text-xs text-gray-400 mt-1">물가정보 전 품목의 규격·단가와 표준품셈의 공종별 공수를 검색해서 확인합니다. 여러 단어는 띄어 쓰면 모두 포함된 항목만 나옵니다.</p>
       </div>
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="예: 차단기 3P 100A, HFIX 2.5, 후강전선관 28" className="w-full border rounded-lg px-3 py-2 text-sm bg-white" autoFocus />
@@ -55,7 +56,7 @@ export default function LookupPage() {
       <section className="bg-white border rounded-xl overflow-x-auto">
         {tab === "mat" ? (
           <table className="w-full text-xs">
-            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3 text-right">단가(원)</th></tr></thead>
+            <thead><tr className="text-gray-400 text-left bg-gray-50"><th className="py-2 px-3">분류</th><th className="py-2 px-3">품명</th><th className="py-2 px-3">규격</th><th className="py-2 px-3">단위</th><th className="py-2 px-3 text-right">단가(원)</th><th className="py-2 px-3">제조사</th></tr></thead>
             <tbody>
               {mats.map((m) => (
                 <tr key={m.id} className="border-t">
@@ -64,9 +65,10 @@ export default function LookupPage() {
                   <td className="py-1.5 px-3 text-gray-600">{m.spec}</td>
                   <td className="py-1.5 px-3">{m.unit}</td>
                   <td className="py-1.5 px-3 text-right tabular-nums">{fmt(m.price)}</td>
+                  <td className="py-1.5 px-3 text-gray-500">{m.maker}</td>
                 </tr>
               ))}
-              {!loading && mats.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-400">{q ? "검색 결과가 없습니다." : "등록된 자재가 없습니다."}</td></tr>}
+              {!loading && mats.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-gray-400">{matMissing ? "공용 단가표가 아직 준비되지 않았습니다." : q ? "검색 결과가 없습니다." : "등록된 자재가 없습니다."}</td></tr>}
             </tbody>
           </table>
         ) : (

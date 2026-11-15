@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { DISCIPLINES, DISCIPLINE_LABELS } from "@/lib/calc";
+import { parseDelimited, rowsFromTable } from "@/lib/materialImport";
 
 type AdminUser = {
   id: number;
@@ -127,6 +128,7 @@ export default function AdminClient({ selfId }: { selfId: number }) {
       <h1 className="text-xl font-bold mb-6">관리자 · 가입자 관리</h1>
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {notice && <p className="text-sm text-green-700 mb-3">{notice}</p>}
+      <PriceUpload />
       <PumsemUpload />
       {overview && <OverviewPanel ov={overview} onDone={async (id, status) => {
         await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inquiryId: id, status }) });
@@ -328,6 +330,63 @@ function PumsemUpload() {
           {DISCIPLINES.map((d) => <option key={d} value={d}>{DISCIPLINE_LABELS[d]}</option>)}
         </select>
         <input type="file" accept=".jsonl,.json,.txt" onChange={onFile} disabled={busy} className="text-xs" />
+      </div>
+      {msg && <p className="text-xs text-blue-700">{msg}</p>}
+    </section>
+  );
+}
+
+function PriceUpload() {
+  const [disc, setDisc] = useState<string>("electrical");
+  const [basis, setBasis] = useState("2026년 11월호");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!confirm(`${DISCIPLINE_LABELS[disc as keyof typeof DISCIPLINE_LABELS]} 공용 자재 단가표(${basis})를 이 파일로 교체합니다. 이 업종의 기존 공용 단가표는 삭제됩니다(사용자 계정의 자재·견적은 그대로). 계속할까요?`)) return;
+    setBusy(true); setMsg("읽는 중...");
+    let rows: Array<Record<string, unknown>>;
+    try {
+      const parsed = rowsFromTable(parseDelimited(await f.text()));
+      rows = parsed.rows as unknown as Array<Record<string, unknown>>;
+      if (rows.length === 0) { setMsg("읽을 수 있는 행이 없습니다. 머리글(분류, 품명, 규격, 단위, 단가, 제조사)이 있는 TSV/CSV인지 확인하세요."); setBusy(false); return; }
+    } catch {
+      setMsg("파일을 읽을 수 없습니다."); setBusy(false); return;
+    }
+    const CH = 2000;
+    let done = 0, skipped = 0;
+    for (let i = 0; i < rows.length; i += CH) {
+      let res: Response;
+      try {
+        res = await fetch("/api/admin/price-items", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ discipline: disc, basis, rows: rows.slice(i, i + CH), first: i === 0 }),
+        });
+      } catch {
+        setMsg(`서버에 연결하지 못했습니다. (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return;
+      }
+      const text = await res.text();
+      let d: { error?: string; inserted?: number; skipped?: number } = {};
+      try { d = JSON.parse(text); } catch { /* JSON이 아닌 오류 페이지 */ }
+      if (!res.ok) { setMsg(`실패(${res.status}): ${d.error ?? text.slice(0, 120)} (${done.toLocaleString()}건까지 올라감)`); setBusy(false); return; }
+      done += d.inserted ?? 0; skipped += d.skipped ?? 0;
+      setMsg(`올리는 중... ${Math.min(i + CH, rows.length).toLocaleString()} / ${rows.length.toLocaleString()}`);
+    }
+    setMsg(`완료: ${done.toLocaleString()}건 등록${skipped ? `, ${skipped}건 제외` : ""}`);
+    setBusy(false);
+  }
+  return (
+    <section className="mb-6 border rounded-xl p-4 space-y-2">
+      <h2 className="text-sm font-semibold">공용 자재 단가표 올리기</h2>
+      <p className="text-xs text-gray-500">모든 사용자가 &quot;자재·품셈 단가&quot; 탭에서 검색하는 기준표입니다. 업종과 기준월을 정하고 TSV/CSV(머리글: 분류, 품명, 규격, 단위, 단가, 제조사)를 선택하면 그 업종의 기준표가 교체됩니다. 먼저 DB 마이그레이션(0011)이 필요합니다.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={disc} onChange={(e) => setDisc(e.target.value)} className="border rounded px-2 py-1 text-xs">
+          {DISCIPLINES.map((d) => <option key={d} value={d}>{DISCIPLINE_LABELS[d]}</option>)}
+        </select>
+        <input value={basis} onChange={(e) => setBasis(e.target.value)} placeholder="기준월" className="border rounded px-2 py-1 text-xs w-32" />
+        <input type="file" accept=".tsv,.csv,.txt" onChange={onFile} disabled={busy} className="text-xs" />
       </div>
       {msg && <p className="text-xs text-blue-700">{msg}</p>}
     </section>

@@ -2,6 +2,7 @@ import fs from "fs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
+import { searchPriceItems, importPriceRows } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
 let fails = 0;
@@ -42,6 +43,18 @@ async function main() {
   ok(tel.total === 1 && tel.rows[0].code === "9", "첫 묶음은 그 업종 기존 항목을 교체");
   ok((await searchPumsemItems("electrical", "", 10, 0, db)).total === 2, "다른 업종은 영향 없음");
   ok(toPumsemRow("fire", { title: "x", labors: [{ name: "a", factor: -1 }] }) === null, "음수 공수는 무시");
+  const pr = await importPriceRows("electrical", "2026년 11월호", [
+    { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
+    { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },
+    { category: "x", name: "", unit: "m", price: 1 },
+  ], true, db);
+  ok(pr.inserted === 2 && pr.skipped === 1, "공용 단가표 적재: 쉼표 단가 처리, 품명 없는 줄 제외");
+  const f1 = await searchPriceItems("electrical", "부스덕트", 10, 0, db);
+  ok(f1.total === 1 && f1.rows[0].price === 1234500 && f1.rows[0].maker === "LS전선", "분류로 검색, 단가·제조사 반환");
+  ok((await searchPriceItems("electrical", "bus duct 600a", 10, 0, db)).total === 1, "영문·여러 단어 모두 포함 검색");
+  ok((await searchPriceItems("fire", "", 10, 0, db)).total === 0, "업종별로 분리");
+  await importPriceRows("electrical", "다음달", [{ name: "새자재", unit: "개", price: 5 }], true, db);
+  ok((await searchPriceItems("electrical", "", 10, 0, db)).total === 1, "다시 올리면 그 업종 기준표가 교체됨");
   if (fails) process.exit(1);
 }
 main();
