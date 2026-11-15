@@ -77,7 +77,6 @@ export default function PumsemPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-lg font-bold">📐 표준품셈</h1>
-        <p className="text-xs text-gray-400 mt-1">자재 1단위를 시공하는 데 필요한 단위당 공수(인/단위)를 관리합니다. 업종별로 표준품셈 책이 다르므로 아래에서 업종을 선택하세요.</p>
       </div>
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />

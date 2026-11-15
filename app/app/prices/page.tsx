@@ -111,9 +111,6 @@ export default function PricesPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-lg font-bold">💰 내 자재 단가</h1>
-        <p className="text-xs text-gray-400 mt-1">
-          내 계정의 자재와 단가입니다(최근에 담거나 수정한 자재가 위에 나옵니다). 견적에는 이 목록의 자재가 쓰입니다. 종합물가정보 전체 품목은 왼쪽 메뉴 &quot;자재·품셈 단가&quot;에서 검색하고 &quot;내 자재로 담기&quot;로 가져오세요. 업종마다 자재 체계가 다르므로 아래에서 업종을 선택하세요.
-        </p>
       </div>
 
       <DisciplineTabs value={discipline} onChange={changeDiscipline} />
@@ -172,7 +169,6 @@ export default function PricesPage() {
 
       <section className="bg-white border rounded-xl p-3 space-y-2">
         <h2 className="text-xs font-bold">표로 한꺼번에 등록 (.xlsx · .csv · .tsv)</h2>
-        <p className="text-[11px] text-gray-400">열: 분류, 품명, 규격, 단위, 단가, 제조사(선택). 첫 줄에 머리글이 있으면 자동으로 찾습니다. 같은 품명·규격·단위가 있으면 단가만 바꾸고, 없으면 새로 추가합니다. 제조사별 단가는 규격 뒤 [제조사]가 붙은 별도 자재로 들어갑니다. 4MB·6만 행까지.</p>
         <div className="flex flex-wrap items-center gap-2">
           <input ref={fileRef} type="file" accept=".xlsx,.csv,.tsv,.txt" className="text-xs"
             onChange={(e) => { setUpFile(e.target.files?.[0] ?? null); setPreview(null); setUpMsg(null); }} />

@@ -82,11 +82,9 @@ export default function SettingsPage() {
       <section className="grid sm:grid-cols-2 gap-2">
         <Link href="/app/prices" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
           <div className="text-sm font-semibold">💰 내 자재 단가</div>
-          <div className="text-xs text-gray-400 mt-0.5">내가 담은 자재 보기·수정·선택 삭제, 단가 엑셀·TSV 업로드</div>
         </Link>
         <Link href="/app/pumsem" className="block border rounded-xl bg-white px-4 py-3 hover:bg-gray-50">
           <div className="text-sm font-semibold">📐 내 표준품셈</div>
-          <div className="text-xs text-gray-400 mt-0.5">내 자재별 공수 편집, 표준품셈 책에서 찾아 적용</div>
         </Link>
       </section>
 
@@ -97,7 +95,7 @@ export default function SettingsPage() {
       ) : (
         <>
           <section className="bg-white border rounded-xl p-4">
-            <h2 className="text-sm font-bold mb-3">노임단가 <span className="text-[10px] text-gray-400">대한건설협회 공표 기준</span></h2>
+            <h2 className="text-sm font-bold mb-3">노임단가</h2>
             <div className="space-y-2">
               {laborRates.map((l) => (
                 <div key={l.id} className="flex items-center justify-between gap-2">
