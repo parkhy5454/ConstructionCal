@@ -63,7 +63,10 @@ export default function DashboardClient({ initialUser }: { initialUser: UserInfo
   return (
     <main className="mx-auto max-w-lg px-4 py-10">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold">내 정보</h1>
+        <div className="flex items-center gap-3">
+          <a href="/app/home" className="text-sm text-gray-500 hover:text-black underline shrink-0">← 홈</a>
+          <h1 className="text-xl font-bold">내 정보</h1>
+        </div>
         <button onClick={logout} className="text-sm underline text-gray-500">로그아웃</button>
       </div>
 
