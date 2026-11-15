@@ -3,6 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../lib/schema";
 import { suggestPumsem, nameTokens, scoreItem } from "../lib/pumsemSuggest";
+import { removeSampleMaterials } from "../lib/estimateData";
 import { searchPriceItems, importPriceRows, adoptPriceItem } from "../lib/priceItems";
 import { searchPumsemItems, applyPumsemItem, parseLabors, importPumsemRows, toPumsemRow } from "../lib/pumsemItems";
 
@@ -51,6 +52,13 @@ async function main() {
   ok(sg2.length >= 1 && sg2[0].item.title.includes("후강전선관") && sg2[0].item.spec === "28mm", "별칭: 강제전선관(아연도) → 후강전선관 28mm 후보");
   const sg = await suggestPumsem("electrical", "전선관", "28 mm", 3, db);
   ok(Array.isArray(sg), "추천 조회가 오류 없이 배열 반환");
+  await db.insert(schema.materials).values([
+    { userId: 9, discipline: "electrical", name: "노출박스", spec: "16mm-1방출", unit: "개", price: "2818" },
+    { userId: 9, discipline: "electrical", name: "내가담은자재", spec: "x", unit: "개", price: "1" },
+  ]);
+  const rs = await removeSampleMaterials(9, "electrical", db);
+  const left = await db.select().from(schema.materials).where(require("drizzle-orm").eq(schema.materials.userId, 9));
+  ok(rs.deleted === 1 && left.length === 1 && left[0].name === "내가담은자재", "예시 자재만 지우고 내가 담은 자재는 남김");
   const pr = await importPriceRows("electrical", "2026년 11월호", [
     { category: "부스덕트 및 부품(1)", name: "600V In Door Bus Duct", spec: "3W / 600A", unit: "m", price: "1,234,500", maker: "LS전선" },
     { category: "차단기", name: "HGP50DS", spec: "3P", unit: "대", price: 143800, maker: "" },

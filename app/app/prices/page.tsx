@@ -66,6 +66,17 @@ export default function PricesPage() {
     load(discipline, q, page);
   }
 
+  async function cleanSamples() {
+    if (!confirm("예전에 자동으로 들어간 예시 자재를 이 업종에서 지웁니다. 견적서에서 쓰는 자재는 남깁니다. 계속할까요?")) return;
+    setBusy(true); setError(null);
+    const res = await fetch(`/api/materials/samples?discipline=${discipline}`, { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) { setError(d.error ?? "정리 실패"); return; }
+    setError(`예시 자재 ${d.deleted ?? 0}개를 지웠습니다${d.kept ? ` (견적서에서 쓰는 ${d.kept}개는 남김 — 예시 견적서를 지우면 정리할 수 있습니다)` : ""}.`);
+    load(discipline, q, page);
+  }
+
   async function addMaterial(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !form.unit.trim()) return;
@@ -96,6 +107,7 @@ export default function PricesPage() {
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="자재 검색 (예: 배선용차단기 3P 100A)"
           className="border rounded-lg px-3 py-1.5 text-xs flex-1 min-w-[220px] bg-white" />
         <span className="text-xs text-gray-400">{total.toLocaleString()}개</span>
+        <button onClick={cleanSamples} disabled={busy} className="text-[11px] border rounded px-2 py-1 text-gray-500 hover:bg-gray-50">예시 자재 정리</button>
       </div>
 
       {loading ? (

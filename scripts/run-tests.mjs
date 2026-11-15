@@ -19,7 +19,7 @@ for (const f of files) {
     entryPoints: [join(dir, f)], bundle: true, platform: "node", outfile, logLevel: "error",
     external: ["@electric-sql/pglite"], // pglite는 자체 wasm 파일을 읽으므로 번들하지 않음
   });
-  const r = spawnSync("node", [outfile], { cwd: root, encoding: "utf8", env: { ...process.env, NODE_PATH: join(root, "node_modules") } });
+  const r = spawnSync("node", [outfile], { cwd: root, encoding: "utf8", env: { ...process.env, SEED_SAMPLES: "1", NODE_PATH: join(root, "node_modules") } });
   const text = (r.stdout ?? "") + (r.stderr ?? "");
   const bad = text.split("\n").filter((l) => l.startsWith("XX ") || l.includes("❌")).length;
   const oks = text.split("\n").filter((l) => l.startsWith("OK ") || l.includes("✅")).length;

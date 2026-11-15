@@ -30,6 +30,8 @@ const matKey = (name: string, spec: string) => `${name}|${spec}`;
 // 그 외 업종은 법정 비율의 출발값만 넣어두고, 자재/품셈은 사용자가 직접 채우도록 비워둡니다.
 // 한 화면이 자재·노임·품셈 API를 동시에 부르면 같은 업종을 동시에 시드하려다 충돌(유니크 위반 500)하거나
 // 일부 목록이 비어 보일 수 있어, 같은 서버 인스턴스에서는 사용자·업종별로 시드를 한 번에 하나만 실행합니다.
+// 예시 자재·품셈·견적서 자동 생성은 기본적으로 끕니다(내 자재에는 사용자가 담은 것만 있도록). 테스트에서만 SEED_SAMPLES=1로 켭니다.
+const seedSamples = () => process.env.SEED_SAMPLES === "1";
 const seeding = new Map<string, Promise<void>>();
 export function ensureSeeded(userId: number, discipline: Discipline = "electrical"): Promise<void> {
   const key = `${userId}:${discipline}`;
@@ -57,6 +59,7 @@ async function seedOnce(userId: number, discipline: Discipline): Promise<void> {
     await db.insert(laborRates).values(
       DEFAULT_LABOR_RATES.map((l) => ({ userId, discipline, code: l.code, name: l.name, rate: String(l.rate) }))
     ).onConflictDoNothing();
+    if (!seedSamples()) return;
 
     const insertedMaterials = await db
       .insert(materials)
@@ -83,7 +86,7 @@ async function seedOnce(userId: number, discipline: Discipline): Promise<void> {
   // 전기 외 업종: 자재단가 시드 데이터가 있고 아직 자재가 하나도 없으면 1회성으로 채워넣음
   const defaults = DEFAULT_MATERIALS_BY_DISCIPLINE[discipline];
   let allMaterials: Array<{ id: number; name: string; spec: string }> = [];
-  if (defaults && defaults.length > 0) {
+  if (defaults && defaults.length > 0 && seedSamples()) {
     const existingMaterials = await db
       .select({ id: materials.id, name: materials.name, spec: materials.spec })
       .from(materials)
@@ -385,4 +388,27 @@ export async function upsertDxfMapping(
       unitScale: String(m.unitScale),
     });
   }
+}
+
+/**
+ * 예전에 자동으로 들어간 예시 자재(이름·규격이 예시 데이터와 같은 것)를 내 자재에서 지웁니다.
+ * 견적서에 쓰이는 자재는 남깁니다. 지운 자재에 붙은 품셈(공수)도 함께 지웁니다.
+ */
+export async function removeSampleMaterials(userId: number, discipline: Discipline, db: ReturnType<typeof getDb> = getDb()): Promise<{ deleted: number; kept: number }> {
+  const sampleKeys = new Set<string>();
+  for (const m of DEFAULT_MATERIALS) sampleKeys.add(matKey(m.name, m.spec));
+  for (const list of Object.values(DEFAULT_MATERIALS_BY_DISCIPLINE)) for (const m of list ?? []) sampleKeys.add(matKey(m.name, m.spec));
+  const mine = await db.select({ id: materials.id, name: materials.name, spec: materials.spec }).from(materials)
+    .where(and(eq(materials.userId, userId), eq(materials.discipline, discipline)));
+  const samples = mine.filter((m: { name: string; spec: string }) => sampleKeys.has(matKey(m.name, m.spec)));
+  if (samples.length === 0) return { deleted: 0, kept: 0 };
+  const usedRows = await db.select({ id: bomItems.materialId }).from(bomItems).innerJoin(projects, eq(projects.id, bomItems.projectId)).where(eq(projects.userId, userId));
+  const used = new Set<number>(usedRows.map((r: { id: number }) => r.id));
+  const del = samples.filter((m: { id: number }) => !used.has(m.id)).map((m: { id: number }) => m.id);
+  for (let i = 0; i < del.length; i += 500) {
+    const ids = del.slice(i, i + 500);
+    await db.delete(pumsem).where(and(eq(pumsem.userId, userId), inArray(pumsem.materialId, ids)));
+    await db.delete(materials).where(and(eq(materials.userId, userId), inArray(materials.id, ids)));
+  }
+  return { deleted: del.length, kept: samples.length - del.length };
 }
